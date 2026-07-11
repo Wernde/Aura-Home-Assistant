@@ -5,14 +5,23 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#050914">
   <meta name="description" content="AURA Home Assistant wall-display alpha">
-  <title>AURA Home Assistant — Alpha 0.1</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>AURA Home Assistant — Alpha 0.2</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./presence.css">
 </head>
-<body data-ai="idle">
+<body data-ai="idle" data-presence="unknown" data-privacy="false">
 <div class="app">
   <header class="topbar">
-    <div class="brand"><div class="mark"></div><div><strong>AURA HOME</strong><small>Household intelligence · Alpha 0.1</small></div></div>
-    <div class="clock"><strong id="time">--:--</strong><small id="date">Brisbane</small></div>
+    <div class="brand"><div class="mark"></div><div><strong>AURA HOME</strong><small>Household intelligence · Alpha 0.2</small></div></div>
+    <div class="topbar-actions">
+      <button class="awareness-button" id="awarenessButton" type="button" aria-haspopup="dialog" aria-controls="awarenessPanel"><span class="awareness-dot"></span><span id="awarenessLabel">Awareness off</span></button>
+      <button class="privacy-button" id="privacyButton" type="button" aria-pressed="false">Privacy</button>
+      <div class="clock"><strong id="time">--:--</strong><small id="date">Brisbane</small></div>
+    </div>
   </header>
 
   <main class="grid">
@@ -37,22 +46,43 @@
     </section>
 
     <section class="card hero">
-      <div class="hero-copy"><p class="eyebrow" id="greeting">Good evening</p><h1><span id="household">Werner family</span>, I’m here.</h1><p>How can I help at home?</p><div class="state"><span class="state-dot"></span><span id="stateLabel">Ready</span></div></div>
-      <div class="visual"><div class="rings"></div><canvas id="aura" aria-label="Animated AURA visual"></canvas></div>
+      <div class="hero-copy"><p class="eyebrow" id="greeting">Good evening</p><h1><span id="household">Werner family</span>, I’m here.</h1><p>How can I help at home?</p><div class="state"><span class="state-dot"></span><span id="stateLabel">Ready</span></div><div class="presence-state" id="presenceState"><span></span><b>No local presence signal</b></div></div>
+      <div class="visual"><div class="rings"></div><div class="presence-halo"></div><canvas id="aura" aria-label="Animated AURA visual"></canvas></div>
       <div class="interaction"><div class="response" id="response">AURA is active. Tap the microphone or type a request.</div><form class="command" id="command"><button class="mic" id="mic" type="button" aria-label="Talk to AURA">◉</button><input id="input" autocomplete="off" placeholder="Ask AURA to control the home or organise the family…"><button class="send">Send</button></form></div>
     </section>
 
     <section class="column right">
       <article class="card"><div class="card-head"><div><p class="eyebrow">Smart scenes</p><h3>Household modes</h3></div></div><div class="card-body scene-grid"><button class="scene active" data-scene="Good Morning"><strong>Good Morning</strong><small>Wake the home gently</small></button><button class="scene" data-scene="Movie Night"><strong>Movie Night</strong><small>Dim and settle</small></button><button class="scene" data-scene="Dinner Time"><strong>Dinner Time</strong><small>Warm family setting</small></button><button class="scene" data-scene="Good Night"><strong>Good Night</strong><small>Secure and sleep</small></button></div></article>
       <article class="card"><div class="card-head"><div><p class="eyebrow">Quick access</p><h3>Family tools</h3></div></div><div class="card-body quick-grid"><button class="quick" data-tool="shopping"><strong>Shopping list</strong><small id="shopCount">3 open items</small></button><button class="quick" data-command="What is on today?"><strong>Plan our day</strong><small>Calendar summary</small></button><button class="quick" data-command="Give me a home report"><strong>Home report</strong><small>System summary</small></button><button class="quick" data-tool="settings"><strong>Settings</strong><small>Voice and household</small></button></div></article>
+      <article class="card awareness-card"><div class="card-head"><div><p class="eyebrow">Local perception</p><h3 id="perceptionTitle">Camera disabled</h3></div><span class="pill" id="localOnlyPill">Local only</span></div><div class="card-body"><div class="metric"><span>Presence</span><b id="presenceMetric">Unknown</b></div><div class="metric"><span>Attention tracking</span><b id="trackingMetric">Inactive</b></div><div class="metric"><span>Processing</span><b id="processingMetric">On this device</b></div><button class="primary awareness-open" id="awarenessOpen" type="button">Configure awareness</button></div></article>
       <article class="card"><div class="card-head"><div><p class="eyebrow">Energy monitor</p><h3>2.4 kW now</h3></div><span class="pill">Normal</span></div><div class="card-body"><div class="metric"><span>Today</span><b>12.8 kWh</b></div><div class="metric"><span>Solar contribution</span><b>38%</b></div><div class="metric"><span>Estimated cost</span><b>$3.72</b></div></div></article>
     </section>
   </main>
 
-  <footer class="footer"><span><i></i>Local demo systems operational</span><span>Camera off · Microphone activates only when requested</span></footer>
+  <footer class="footer"><span><i></i>Local demo systems operational</span><span id="privacyStatus">Camera off · Microphone activates only when requested</span></footer>
 </div>
 <div class="drawer-backdrop hidden" id="backdrop"></div>
 <aside class="drawer" id="drawer" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow" id="drawerEye">AURA Home</p><h2 id="drawerTitle">Panel</h2></div><button class="icon-btn" id="close">×</button></div><div id="drawerContent"></div></aside>
+
+<div class="awareness-backdrop" id="awarenessBackdrop" hidden></div>
+<section class="awareness-panel" id="awarenessPanel" role="dialog" aria-modal="true" aria-labelledby="awarenessPanelTitle" hidden>
+  <div class="awareness-panel-head"><div><p class="eyebrow">Local perception</p><h2 id="awarenessPanelTitle">AURA Awareness</h2></div><button class="icon-btn" id="awarenessClose" type="button" aria-label="Close awareness settings">×</button></div>
+  <div class="camera-stage"><video id="cameraFeed" muted playsinline></video><canvas id="motionCanvas" width="160" height="90" hidden></canvas><div class="camera-placeholder" id="cameraPlaceholder"><div class="camera-symbol">◉</div><strong>Camera is off</strong><span>Enable local awareness to let AURA notice when someone approaches.</span></div><div class="camera-indicator"><span></span><b id="cameraIndicatorText">Not recording</b></div></div>
+  <div class="awareness-controls">
+    <button class="primary" id="cameraToggle" type="button">Enable camera awareness</button>
+    <button class="secondary" id="panelPrivacyToggle" type="button">Enter privacy mode</button>
+  </div>
+  <div class="privacy-explainer"><strong>Local-first by design</strong><p>The camera stream stays inside this browser. Alpha 0.2 does not upload, record or store camera images. Use the physical camera shutter when you want a hardware guarantee.</p></div>
+  <div class="awareness-grid">
+    <div><span>Detection method</span><b id="detectionMethod">Awaiting permission</b></div>
+    <div><span>Last presence</span><b id="lastPresence">Never</b></div>
+    <div><span>Secure context</span><b id="secureContext">Checking…</b></div>
+    <div><span>Install status</span><b id="installStatus">Browser app</b></div>
+  </div>
+  <button class="install-button" id="installButton" type="button" hidden>Install AURA on this wall PC</button>
+</section>
+
 <script src="./app.js"></script>
+<script src="./presence.js"></script>
 </body>
 </html>
