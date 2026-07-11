@@ -155,6 +155,11 @@
     return reminder;
   }
 
+  function parseTemperature(command) {
+    const match = command.match(/\b(1[6-9]|2[0-9]|30)\b/);
+    return match ? Number(match[1]) : null;
+  }
+
   function listMemory() {
     const noteText = data.notes.length ? data.notes.slice(0, 4).map((note) => note.text).join('; ') : 'no household notes';
     const reminderText = data.reminders.filter((item) => !item.completed).length;
@@ -178,6 +183,7 @@
 
       if (rememberMatch) {
         data.notes.unshift({ id: crypto.randomUUID?.() || String(Date.now()), text: rememberMatch[1].trim(), pinned: false });
+        save();
         data.context = { lastTopic: 'notes', lastAction: 'create', lastEntity: rememberMatch[1].trim() };
         message = `I’ve saved that as a household note: ${rememberMatch[1].trim()}.`;
       } else if (remindMatch) {
@@ -185,10 +191,18 @@
         data.context = { lastTopic: 'reminders', lastAction: 'create', lastEntity: reminder.text };
         message = `I’ve created a local reminder to ${reminder.text}${reminder.whenText ? ` ${reminder.whenText}` : ''}.`;
       } else if (addShopping) {
-        const current = window.AURA?.state?.();
-        if (current?.shopping) current.shopping.push({ text: addShopping[1].trim(), done: false });
-        message = `I’ve added ${addShopping[1].trim()} to the shopping list.`;
-        data.context = { lastTopic: 'shopping', lastAction: 'add', lastEntity: addShopping[1].trim() };
+        const item = addShopping[1].trim();
+        document.querySelector('[data-tool="shopping"]')?.click();
+        setTimeout(() => {
+          const shopInput = $('#shopInput');
+          const shopForm = $('#shopForm');
+          if (shopInput && shopForm) {
+            shopInput.value = item;
+            shopForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          }
+        }, 30);
+        message = `I’ve added ${item} to the shopping list.`;
+        data.context = { lastTopic: 'shopping', lastAction: 'add', lastEntity: item };
       } else if (/show|open/.test(lower) && /note|memory/.test(lower)) {
         renderNotesPanel();
         message = listMemory();
@@ -220,6 +234,8 @@
       } else if (/run|activate/.test(lower) && /(night|sleep)/.test(lower)) {
         activateScene('Good Night');
         message = 'Good Night is active.';
+      } else if ((/temperature|climate|degrees/.test(lower)) && parseTemperature(lower) !== null) {
+        handled = false;
       } else if (/help|what can you do/.test(lower)) {
         message = 'Without cloud AI, I can still control local demo systems, run scenes, manage shopping and calendar items, store household notes, create local reminders, run scheduled routines, use browser speech, and react to local camera presence.';
       } else {
