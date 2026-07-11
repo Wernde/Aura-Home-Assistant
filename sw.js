@@ -1,11 +1,13 @@
-const CACHE_NAME = 'aura-home-alpha-02';
+const CACHE_NAME = 'aura-home-alpha-03';
 const CORE_ASSETS = [
   './',
   './index.html',
   './styles.css',
   './presence.css',
+  './local-core.css',
   './app.js',
   './presence.js',
+  './local-core.js',
   './manifest.webmanifest',
   './icon.svg'
 ];
