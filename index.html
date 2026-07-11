@@ -7,16 +7,17 @@
   <meta name="description" content="AURA Home Assistant wall-display alpha">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>AURA Home Assistant — Alpha 0.2</title>
+  <title>AURA Home Assistant — Alpha 0.3</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./presence.css">
+  <link rel="stylesheet" href="./local-core.css">
 </head>
 <body data-ai="idle" data-presence="unknown" data-privacy="false">
 <div class="app">
   <header class="topbar">
-    <div class="brand"><div class="mark"></div><div><strong>AURA HOME</strong><small>Household intelligence · Alpha 0.2</small></div></div>
+    <div class="brand"><div class="mark"></div><div><strong>AURA HOME</strong><small>Household intelligence · Alpha 0.3</small></div></div>
     <div class="topbar-actions">
       <button class="awareness-button" id="awarenessButton" type="button" aria-haspopup="dialog" aria-controls="awarenessPanel"><span class="awareness-dot"></span><span id="awarenessLabel">Awareness off</span></button>
       <button class="privacy-button" id="privacyButton" type="button" aria-pressed="false">Privacy</button>
@@ -72,7 +73,7 @@
     <button class="primary" id="cameraToggle" type="button">Enable camera awareness</button>
     <button class="secondary" id="panelPrivacyToggle" type="button">Enter privacy mode</button>
   </div>
-  <div class="privacy-explainer"><strong>Local-first by design</strong><p>The camera stream stays inside this browser. Alpha 0.2 does not upload, record or store camera images. Use the physical camera shutter when you want a hardware guarantee.</p></div>
+  <div class="privacy-explainer"><strong>Local-first by design</strong><p>The camera stream stays inside this browser. Alpha 0.3 does not upload, record or store camera images. Use the physical camera shutter when you want a hardware guarantee.</p></div>
   <div class="awareness-grid">
     <div><span>Detection method</span><b id="detectionMethod">Awaiting permission</b></div>
     <div><span>Last presence</span><b id="lastPresence">Never</b></div>
@@ -84,5 +85,6 @@
 
 <script src="./app.js"></script>
 <script src="./presence.js"></script>
+<script src="./local-core.js"></script>
 </body>
 </html>
