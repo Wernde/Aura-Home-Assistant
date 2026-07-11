@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#050914">
+  <meta name="description" content="AURA Home Assistant wall-display alpha">
+  <title>AURA Home Assistant — Alpha 0.1</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body data-ai="idle">
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="mark"></div><div><strong>AURA HOME</strong><small>Household intelligence · Alpha 0.1</small></div></div>
+    <div class="clock"><strong id="time">--:--</strong><small id="date">Brisbane</small></div>
+  </header>
+
+  <main class="grid">
+    <section class="column">
+      <article class="card">
+        <div class="card-head"><div><p class="eyebrow">Home overview</p><h3>Werner residence</h3></div><span class="pill" id="securityPill">Secure</span></div>
+        <div class="card-body">
+          <button class="control" id="lights"><div><strong>Living-room lights</strong><small id="lightsText">On · 68%</small></div><span class="switch on"></span></button>
+          <button class="control" id="security"><div><strong>Security</strong><small id="securityText">All listed doors secured</small></div><span class="switch on"></span></button>
+          <button class="control" id="climate"><div><strong>Climate</strong><small>Living zone</small></div><b><span id="temperature">22</span>°C</b></button>
+          <button class="control" id="music"><div><strong>Home atmosphere</strong><small id="musicText">Paused</small></div><b id="musicIcon">▶</b></button>
+        </div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div><p class="eyebrow">Today</p><h3>Family calendar</h3></div><button class="icon-btn" id="calendarBtn">＋</button></div>
+        <div class="card-body" id="events"></div>
+      </article>
+      <article class="card weather">
+        <div class="card-head"><div><p class="eyebrow">Brisbane weather</p><h3>21°C · Partly cloudy</h3></div><span class="pill">Demo</span></div>
+        <div class="card-body"><div class="metric"><span>Feels like</span><b>20°C</b></div><div class="metric"><span>Rain chance</span><b>15%</b></div><div class="metric"><span>UV</span><b>Moderate</b></div></div>
+      </article>
+    </section>
+
+    <section class="card hero">
+      <div class="hero-copy"><p class="eyebrow" id="greeting">Good evening</p><h1><span id="household">Werner family</span>, I’m here.</h1><p>How can I help at home?</p><div class="state"><span class="state-dot"></span><span id="stateLabel">Ready</span></div></div>
+      <div class="visual"><div class="rings"></div><canvas id="aura" aria-label="Animated AURA visual"></canvas></div>
+      <div class="interaction"><div class="response" id="response">AURA is active. Tap the microphone or type a request.</div><form class="command" id="command"><button class="mic" id="mic" type="button" aria-label="Talk to AURA">◉</button><input id="input" autocomplete="off" placeholder="Ask AURA to control the home or organise the family…"><button class="send">Send</button></form></div>
+    </section>
+
+    <section class="column right">
+      <article class="card"><div class="card-head"><div><p class="eyebrow">Smart scenes</p><h3>Household modes</h3></div></div><div class="card-body scene-grid"><button class="scene active" data-scene="Good Morning"><strong>Good Morning</strong><small>Wake the home gently</small></button><button class="scene" data-scene="Movie Night"><strong>Movie Night</strong><small>Dim and settle</small></button><button class="scene" data-scene="Dinner Time"><strong>Dinner Time</strong><small>Warm family setting</small></button><button class="scene" data-scene="Good Night"><strong>Good Night</strong><small>Secure and sleep</small></button></div></article>
+      <article class="card"><div class="card-head"><div><p class="eyebrow">Quick access</p><h3>Family tools</h3></div></div><div class="card-body quick-grid"><button class="quick" data-tool="shopping"><strong>Shopping list</strong><small id="shopCount">3 open items</small></button><button class="quick" data-command="What is on today?"><strong>Plan our day</strong><small>Calendar summary</small></button><button class="quick" data-command="Give me a home report"><strong>Home report</strong><small>System summary</small></button><button class="quick" data-tool="settings"><strong>Settings</strong><small>Voice and household</small></button></div></article>
+      <article class="card"><div class="card-head"><div><p class="eyebrow">Energy monitor</p><h3>2.4 kW now</h3></div><span class="pill">Normal</span></div><div class="card-body"><div class="metric"><span>Today</span><b>12.8 kWh</b></div><div class="metric"><span>Solar contribution</span><b>38%</b></div><div class="metric"><span>Estimated cost</span><b>$3.72</b></div></div></article>
+    </section>
+  </main>
+
+  <footer class="footer"><span><i></i>Local demo systems operational</span><span>Camera off · Microphone activates only when requested</span></footer>
+</div>
+<div class="drawer-backdrop hidden" id="backdrop"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow" id="drawerEye">AURA Home</p><h2 id="drawerTitle">Panel</h2></div><button class="icon-btn" id="close">×</button></div><div id="drawerContent"></div></aside>
+<script src="./app.js"></script>
+</body>
+</html>
