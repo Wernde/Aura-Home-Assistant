@@ -2,26 +2,47 @@
 
 A standalone, cinematic wall-display prototype for a local-first household AI assistant. AURA is designed for a touchscreen PC with a built-in camera, microphones and speakers, and is completely separate from Drovik.
 
-## Alpha 0.2 capabilities
+## Alpha 0.3 capabilities
 
 ### Living visual
 
 - Live Brisbane date and time
 - Animated holographic AURA face rendered in real time on Canvas
 - Visible idle movement, breathing, blinking, eye tracking and mouth animation
-- Assistant states: ready, aware, listening, thinking, speaking and alert
+- Assistant states: ready, aware, listening, local reasoning, speaking and alert
 - Stronger visual wake response when local presence is detected
 
-### Interaction
+### Local intelligence
 
-- Browser speech recognition when supported
-- Browser text-to-speech responses
-- Typed natural-language demo commands
+- No paid API or cloud AI required
+- Typed and browser-voice commands
+- Local command routing with fallback to the original demo engine
+- Persistent household notes
+- Local reminders
+- Context for the most recent local request
+- Editable scheduled routines that activate household scenes while AURA is running
+- Voice commands for privacy mode, camera awareness, notes, reminders, scenes and shopping items
+- Family Notes and Routines panels added to Quick Access
+
+Example local commands:
+
+- “Remember that the bins go out Thursday evening”
+- “What do you remember?”
+- “Remind us to check the school bags tomorrow”
+- “Add lactose-free milk to the shopping list”
+- “Open routines”
+- “Activate Movie Night”
+- “Enable camera awareness”
+- “Turn on privacy mode”
+- “What can you do?”
+
+### Home interaction
+
 - Simulated lighting, security, climate and music controls
 - Good Morning, Movie Night, Dinner Time and Good Night scenes
 - Editable family calendar and shopping list
 - Home report panel
-- Voice, volume, time format, reduced-motion and household-name settings
+- Voice, volume, reduced-motion and household-name settings
 - LocalStorage persistence
 
 ### Local awareness and privacy
@@ -29,8 +50,8 @@ A standalone, cinematic wall-display prototype for a local-first household AI as
 - Optional browser camera access
 - Local face-presence detection when the browser supports `FaceDetector`
 - Local motion-presence fallback on other compatible browsers
-- Attention tracking feeds the detected face position into AURA’s eye movement
-- No camera recording or cloud upload in Alpha 0.2
+- Attention tracking feeds detected position into AURA’s visual response
+- No camera recording or cloud upload
 - Clearly visible camera and presence indicators
 - One-touch software privacy mode
 - Designed to be paired with a physical camera shutter and microphone mute switch
@@ -52,7 +73,7 @@ python3 -m http.server 8080
 
 Open `http://localhost:8080` in Chrome or Edge. Camera and microphone access require `localhost` or HTTPS.
 
-No installation, API key or build step is required for this alpha.
+No installation, API key or build step is required.
 
 ## Try local awareness
 
@@ -62,30 +83,18 @@ No installation, API key or build step is required for this alpha.
 4. Move into or out of view and watch AURA’s presence status and visual intensity change.
 5. Use **Privacy** to stop the camera immediately.
 
-Camera frames stay inside the browser and are not stored by this alpha.
-
-## Example commands
-
-- “Turn the living-room lights off”
-- “Set the temperature to 21 degrees”
-- “Activate Movie Night”
-- “What’s on today?”
-- “Show my shopping list”
-- “Give me a home report”
-- “Play music”
-- “Good night”
+Camera frames stay inside the browser and are not stored.
 
 ## Project direction
 
-The production system will add:
+The next local-first phases will focus on:
 
-- OpenAI Realtime voice interaction
-- Responses API reasoning and tool use
-- Specialist household agents
-- Local household memory
-- Improved camera-based presence, identity and gaze detection
 - Home Assistant integration with confirmed device states
+- Improved routine scheduling and reminder delivery
+- Local user profiles and permissions
 - Kiosk startup and local service supervision
+- Optional local language-model support
+- Optional cloud AI only when the household chooses to enable it
 
 See:
 
@@ -95,4 +104,4 @@ See:
 
 ## Current limitations
 
-This version uses a local demo command engine and sample household data. It does not yet connect to real smart-home devices, live calendars, weather providers, streaming services, identity recognition or a cloud AI model.
+This version uses local browser logic and sample household data. It does not yet connect to real smart-home devices, live calendars, weather providers, streaming services or identity recognition. Scheduled routines only execute while AURA is open in the browser.
