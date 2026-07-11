@@ -6,7 +6,7 @@ A standalone, cinematic wall-display prototype for a local-first household AI as
 
 - Live Brisbane date and time
 - Animated holographic AURA face rendered in real time on Canvas
-- Visible idle movement, breathing, blinking, eye tracking and mouth animation
+- Visible idle movement, breathing, blinking, pointer-based eye tracking and mouth animation
 - Assistant states: ready, listening, thinking, speaking and alert
 - Browser speech recognition when supported
 - Browser text-to-speech responses
@@ -14,11 +14,11 @@ A standalone, cinematic wall-display prototype for a local-first household AI as
 - Simulated lighting, security, climate and music controls
 - Good Morning, Movie Night, Dinner Time and Good Night scenes
 - Editable family calendar and shopping list
-- Home report panel
-- Voice, volume, time format, reduced-motion and household-name settings
+- Spoken and on-screen home report
+- Voice volume, reduced-motion and household-name settings
 - LocalStorage persistence
 - Responsive wall, desktop and tablet layouts
-- Offline-capable PWA shell
+- Dependency-free static build
 
 ## Run locally
 
