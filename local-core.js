@@ -2,6 +2,7 @@
   'use strict';
 
   const KEY = 'aura-local-core-03';
+  const BRISBANE_TIME_ZONE = 'Australia/Brisbane';
   const defaults = {
     notes: [
       { id: crypto.randomUUID?.() || 'note-1', text: 'Put the bins out on Thursday evening', pinned: true },
@@ -143,11 +144,13 @@
   }
 
   function addReminder(text, whenText = '') {
+    const createdAt = new Date().toISOString();
     const reminder = {
       id: crypto.randomUUID?.() || String(Date.now()),
       text,
       whenText,
-      createdAt: new Date().toISOString(),
+      createdAt,
+      timeZone: BRISBANE_TIME_ZONE,
       completed: false
     };
     data.reminders.push(reminder);
@@ -189,7 +192,7 @@
       } else if (remindMatch) {
         const reminder = addReminder(remindMatch[1].trim(), remindMatch[2] || '');
         data.context = { lastTopic: 'reminders', lastAction: 'create', lastEntity: reminder.text };
-        message = `I’ve created a local reminder to ${reminder.text}${reminder.whenText ? ` ${reminder.whenText}` : ''}.`;
+        message = `I’ve created a local reminder to ${reminder.text}${reminder.whenText ? ` ${reminder.whenText}` : ''}. Times are kept in Brisbane time on this wall PC.`;
       } else if (addShopping) {
         const item = addShopping[1].trim();
         document.querySelector('[data-tool="shopping"]')?.click();
@@ -237,7 +240,7 @@
       } else if ((/temperature|climate|degrees/.test(lower)) && parseTemperature(lower) !== null) {
         handled = false;
       } else if (/help|what can you do/.test(lower)) {
-        message = 'Without cloud AI, I can still control local demo systems, run scenes, manage shopping and calendar items, store household notes, create local reminders, run scheduled routines, use browser speech, and react to local camera presence.';
+        message = 'Without paid APIs or cloud AI, I can still control local demo systems, run scenes, manage shopping and calendar items, store household notes, create local reminders, run scheduled routines, use browser speech, and react to local camera presence.';
       } else {
         handled = false;
       }

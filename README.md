@@ -75,6 +75,12 @@ Open `http://localhost:8080` in Chrome or Edge. Camera and microphone access req
 
 No installation, API key or build step is required.
 
+## Development workflow
+
+Use Codex Cloud with the GitHub repository for immediate code and documentation work. Use local Codex when validating the built-in camera, microphone, speakers, local browser permissions, full-screen kiosk mode or the physical Windows wall PC.
+
+Permanent repository rules live in [`AGENTS.md`](AGENTS.md): keep AURA separate from Drovik, avoid paid APIs for now, preserve local-first privacy, keep the living face visibly alive, optimise for a Windows wall PC and touchscreen, use Australian English with Brisbane time, protect working features from regressions and test before claiming completion.
+
 ## Try local awareness
 
 1. Open **Awareness** in the top bar.
@@ -87,17 +93,28 @@ Camera frames stay inside the browser and are not stored.
 
 ## Project direction
 
-The next local-first phases will focus on:
+The Word project specification is distilled into repo-tracked planning docs:
+
+- [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md)
+- [`docs/ALPHA_04_PLAN.md`](docs/ALPHA_04_PLAN.md)
+
+The next local-first phase is Alpha 0.4, focused on:
 
 - Home Assistant integration with confirmed device states
+- A disabled-by-default local gateway that keeps secrets out of browser JavaScript
+- Clear simulated, live, cached and unavailable data labels
+- Sent, pending, confirmed, failed and timed-out command states
 - Improved routine scheduling and reminder delivery
-- Local user profiles and permissions
 - Kiosk startup and local service supervision
+- Physical Windows wall-PC hardware testing
+- Local user profiles and permissions
 - Optional local language-model support
-- Optional cloud AI only when the household chooses to enable it
+- Optional cloud AI only when the household explicitly chooses to enable it later
 
 See:
 
+- [`docs/MASTER_SPEC.md`](docs/MASTER_SPEC.md)
+- [`docs/ALPHA_04_PLAN.md`](docs/ALPHA_04_PLAN.md)
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 - [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md)
 - [`docs/MVP_ACCEPTANCE.md`](docs/MVP_ACCEPTANCE.md)
