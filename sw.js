@@ -1,12 +1,14 @@
-const CACHE_NAME = 'aura-home-alpha-03-guidance-01';
+const CACHE_NAME = 'aura-home-alpha-04-gateway-01';
 const CORE_ASSETS = [
   './',
   './index.html',
   './styles.css',
   './presence.css',
   './local-core.css',
+  './home-gateway.css',
   './app.js',
   './presence.js',
+  './home-gateway.js',
   './local-core.js',
   './manifest.webmanifest',
   './icon.svg'

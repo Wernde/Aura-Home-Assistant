@@ -81,6 +81,25 @@ Use Codex Cloud with the GitHub repository for immediate code and documentation 
 
 Permanent repository rules live in [`AGENTS.md`](AGENTS.md): keep AURA separate from Drovik, avoid paid APIs for now, preserve local-first privacy, keep the living face visibly alive, optimise for a Windows wall PC and touchscreen, use Australian English with Brisbane time, protect working features from regressions and test before claiming completion.
 
+## Alpha 0.4 gateway foundation
+
+AURA now includes the first disabled-by-default Home Assistant gateway foundation:
+
+- Wall UI card and panel for local gateway status
+- No Home Assistant token field in the browser
+- Local gateway URL stored only in browser settings
+- `/health`, `/entities` and `/commands` gateway endpoints
+- Low-risk command allowlist for early testing
+- Blocked security-critical domains until permission and confirmation policy exists
+
+Run the local gateway only on a trusted machine:
+
+```bash
+node gateway/local-gateway.js
+```
+
+Set `HA_BASE_URL` and `HA_TOKEN` in the local environment when you are ready to connect a Home Assistant test instance. See [`gateway/README.md`](gateway/README.md).
+
 ## Try local awareness
 
 1. Open **Awareness** in the top bar.

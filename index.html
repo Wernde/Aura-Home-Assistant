@@ -7,17 +7,18 @@
   <meta name="description" content="AURA Home Assistant wall-display alpha">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>AURA Home Assistant — Alpha 0.3</title>
+  <title>AURA Home Assistant — Alpha 0.4 foundation</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./presence.css">
   <link rel="stylesheet" href="./local-core.css">
+  <link rel="stylesheet" href="./home-gateway.css">
 </head>
 <body data-ai="idle" data-presence="unknown" data-privacy="false">
 <div class="app">
   <header class="topbar">
-    <div class="brand"><div class="mark"></div><div><strong>AURA HOME</strong><small>Household intelligence · Alpha 0.3</small></div></div>
+    <div class="brand"><div class="mark"></div><div><strong>AURA HOME</strong><small>Household intelligence · Alpha 0.4 foundation</small></div></div>
     <div class="topbar-actions">
       <button class="awareness-button" id="awarenessButton" type="button" aria-haspopup="dialog" aria-controls="awarenessPanel"><span class="awareness-dot"></span><span id="awarenessLabel">Awareness off</span></button>
       <button class="privacy-button" id="privacyButton" type="button" aria-pressed="false">Privacy</button>
@@ -56,6 +57,7 @@
       <article class="card"><div class="card-head"><div><p class="eyebrow">Smart scenes</p><h3>Household modes</h3></div></div><div class="card-body scene-grid"><button class="scene active" data-scene="Good Morning"><strong>Good Morning</strong><small>Wake the home gently</small></button><button class="scene" data-scene="Movie Night"><strong>Movie Night</strong><small>Dim and settle</small></button><button class="scene" data-scene="Dinner Time"><strong>Dinner Time</strong><small>Warm family setting</small></button><button class="scene" data-scene="Good Night"><strong>Good Night</strong><small>Secure and sleep</small></button></div></article>
       <article class="card"><div class="card-head"><div><p class="eyebrow">Quick access</p><h3>Family tools</h3></div></div><div class="card-body quick-grid"><button class="quick" data-tool="shopping"><strong>Shopping list</strong><small id="shopCount">3 open items</small></button><button class="quick" data-command="What is on today?"><strong>Plan our day</strong><small>Calendar summary</small></button><button class="quick" data-command="Give me a home report"><strong>Home report</strong><small>System summary</small></button><button class="quick" data-tool="settings"><strong>Settings</strong><small>Voice and household</small></button></div></article>
       <article class="card awareness-card"><div class="card-head"><div><p class="eyebrow">Local perception</p><h3 id="perceptionTitle">Camera disabled</h3></div><span class="pill" id="localOnlyPill">Local only</span></div><div class="card-body"><div class="metric"><span>Presence</span><b id="presenceMetric">Unknown</b></div><div class="metric"><span>Attention tracking</span><b id="trackingMetric">Inactive</b></div><div class="metric"><span>Processing</span><b id="processingMetric">On this device</b></div><button class="primary awareness-open" id="awarenessOpen" type="button">Configure awareness</button></div></article>
+      <article class="card gateway-card"><div class="card-head"><div><p class="eyebrow">Home Assistant</p><h3 id="gatewayTitle">Gateway offline</h3></div><span class="pill gateway-pill" id="gatewayPill">Simulated</span></div><div class="card-body"><div class="metric"><span>Connection</span><b id="gatewayConnection">Not configured</b></div><div class="metric"><span>Device state</span><b id="gatewayState">Demo only</b></div><div class="metric"><span>Last command</span><b id="gatewayCommand">None</b></div><button class="primary gateway-open" id="gatewayOpen" type="button">Configure gateway</button></div></article>
       <article class="card"><div class="card-head"><div><p class="eyebrow">Energy monitor</p><h3>2.4 kW now</h3></div><span class="pill">Normal</span></div><div class="card-body"><div class="metric"><span>Today</span><b>12.8 kWh</b></div><div class="metric"><span>Solar contribution</span><b>38%</b></div><div class="metric"><span>Estimated cost</span><b>$3.72</b></div></div></article>
     </section>
   </main>
@@ -85,6 +87,7 @@
 
 <script src="./app.js"></script>
 <script src="./presence.js"></script>
+<script src="./home-gateway.js"></script>
 <script src="./local-core.js"></script>
 </body>
 </html>
