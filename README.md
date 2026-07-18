@@ -81,16 +81,20 @@ Use Codex Cloud with the GitHub repository for immediate code and documentation 
 
 Permanent repository rules live in [`AGENTS.md`](AGENTS.md): keep AURA separate from Drovik, avoid paid APIs for now, preserve local-first privacy, keep the living face visibly alive, optimise for a Windows wall PC and touchscreen, use Australian English with Brisbane time, protect working features from regressions and test before claiming completion.
 
-## Alpha 0.4 gateway foundation
+## Alpha 0.4 confirmed device-state milestone
 
-AURA now includes the first disabled-by-default Home Assistant gateway foundation:
+AURA now includes a disabled-by-default Home Assistant gateway with a confirmed-state command lifecycle:
 
-- Wall UI card and panel for local gateway status
+- Wall UI card and gateway drawer for local connection status
 - No Home Assistant token field in the browser
 - Local gateway URL stored only in browser settings
-- `/health`, `/entities` and `/commands` gateway endpoints
-- Low-risk command allowlist for early testing
-- Blocked security-critical domains until permission and confirmation policy exists
+- `/health`, `/entities`, `/commands` and `/commands/:id` gateway endpoints
+- Exact entity allowlisting through `AURA_ENTITY_ALLOWLIST`
+- Restricted browser origins through `AURA_ALLOWED_ORIGINS`
+- Live entity discovery with clear allowlisted and read-only states
+- Sent, pending, confirmed, failed and timed-out command states
+- No optimistic success copy before Home Assistant confirms the target state
+- Blocked locks, alarms, covers and cameras
 
 Run the local gateway only on a trusted machine:
 
@@ -98,7 +102,7 @@ Run the local gateway only on a trusted machine:
 node gateway/local-gateway.js
 ```
 
-Set `HA_BASE_URL` and `HA_TOKEN` in the local environment when you are ready to connect a Home Assistant test instance. See [`gateway/README.md`](gateway/README.md).
+Set `HA_BASE_URL`, `HA_TOKEN`, `AURA_ENTITY_ALLOWLIST` and `AURA_ALLOWED_ORIGINS` in the local environment when you are ready to connect a Home Assistant test instance. See [`gateway/README.md`](gateway/README.md) and [`docs/ALPHA_04_MILESTONE_3.md`](docs/ALPHA_04_MILESTONE_3.md).
 
 ## Try local awareness
 
@@ -119,10 +123,7 @@ The Word project specification is distilled into repo-tracked planning docs:
 
 The next local-first phase is Alpha 0.4, focused on:
 
-- Home Assistant integration with confirmed device states
-- A disabled-by-default local gateway that keeps secrets out of browser JavaScript
-- Clear simulated, live, cached and unavailable data labels
-- Sent, pending, confirmed, failed and timed-out command states
+- Room and scene mapping between AURA and Home Assistant
 - Improved routine scheduling and reminder delivery
 - Kiosk startup and local service supervision
 - Physical Windows wall-PC hardware testing
@@ -140,4 +141,4 @@ See:
 
 ## Current limitations
 
-This version uses local browser logic and sample household data. It does not yet connect to real smart-home devices, live calendars, weather providers, streaming services or identity recognition. Scheduled routines only execute while AURA is open in the browser.
+This version uses local browser logic and sample household data. Real Home Assistant commands require local gateway configuration and exact entity allowlisting. Live calendars, weather providers, streaming services and identity recognition are not yet connected. Scheduled routines only execute while AURA is open in the browser. Physical wall-PC, camera, microphone, speaker and kiosk validation is still required.
