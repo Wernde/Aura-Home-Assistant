@@ -40,6 +40,8 @@ jobs:
             index.html
             styles.css
             app.js
+            workspace.css
+            workspace.js
             manifest.webmanifest
             sw.js
             home-gateway.js
@@ -80,6 +82,19 @@ jobs:
           grep -q 'Home Assistant' index.html
           echo "Light-first Ambient Home contract is present."
 
+      - name: Validate workspace contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "requested" workspace.js
+          grep -q "prepared" workspace.js
+          grep -q "visible" workspace.js
+          grep -q "workspacePin" index.html
+          grep -q "workspaceExpand" index.html
+          grep -q "Source:" workspace.js
+          grep -q "unlock|disarm" workspace.js
+          echo "Registered workspace lifecycle and security guard are present."
+
       - name: Validate local-first safety markers
         shell: bash
         run: |
@@ -99,6 +114,8 @@ jobs:
             index.html
             styles.css
             app.js
+            workspace.css
+            workspace.js
             presence.css
             presence.js
             local-core.css
