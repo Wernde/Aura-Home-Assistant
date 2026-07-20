@@ -11,6 +11,7 @@
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./workspace.css">
   <link rel="stylesheet" href="./presence.css">
   <link rel="stylesheet" href="./local-core.css">
   <link rel="stylesheet" href="./home-gateway.css">
@@ -28,13 +29,13 @@
 
   <main class="ambient-grid">
     <aside class="ambient-side left-side" aria-label="What matters next">
-      <article class="ambient-card next-card">
+      <article class="ambient-card next-card" tabindex="0">
         <div class="section-label">What matters next</div>
         <div class="card-head"><div><h2>Today</h2><p>Two shared items</p></div><button class="icon-btn" id="calendarBtn" aria-label="Open family calendar">＋</button></div>
         <div class="card-body" id="events"></div>
       </article>
 
-      <article class="ambient-card weather-card">
+      <article class="ambient-card weather-card" tabindex="0">
         <div class="section-label">Weather</div>
         <div class="weather-primary"><span aria-hidden="true">☀︎</span><div><strong>23°</strong><small>Partly cloudy</small></div></div>
         <div class="weather-change"><span>Next change</span><b>Cooler after sunset</b></div>
@@ -50,7 +51,7 @@
     </section>
 
     <aside class="ambient-side right-side" aria-label="Favourite actions">
-      <article class="ambient-card status-summary">
+      <article class="ambient-card status-summary" tabindex="0">
         <div class="section-label">Home status</div>
         <div class="status-hero"><span class="status-icon">✓</span><div><h2>Everything looks normal</h2><p>No verified exceptions need attention.</p></div></div>
         <button class="summary-row" data-command="Give me a home report"><span>View verified home report</span><b>›</b></button>
@@ -89,6 +90,14 @@
   <footer class="footer"><span><i></i><b>All systems normal</b></span><span>Local services <b>Available</b></span><span id="privacyStatus">Privacy controls visible</span><span class="footer-presence">Presence <b id="footerPresence">Household</b></span></footer>
 </div>
 
+<section class="workspace-shell" id="workspaceShell" aria-live="polite" aria-labelledby="workspaceTitle" hidden>
+  <header class="workspace-head">
+    <div><p class="eyebrow" id="workspaceEye">AURA workspace</p><h2 id="workspaceTitle">Workspace</h2><div class="workspace-meta"><span class="workspace-chip" id="workspaceSource">Source</span><span class="workspace-chip" id="workspaceFreshness">Updated now</span></div></div>
+    <div class="workspace-actions"><button id="workspacePin" type="button" aria-label="Pin workspace" aria-pressed="false">⌖</button><button id="workspaceExpand" type="button" aria-label="Expand workspace" aria-pressed="false">⤢</button><button id="workspaceClose" type="button" aria-label="Close workspace">×</button></div>
+  </header>
+  <div class="workspace-body" id="workspaceBody"></div>
+</section>
+
 <div class="drawer-backdrop hidden" id="backdrop"></div>
 <aside class="drawer" id="drawer" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow" id="drawerEye">AURA Home</p><h2 id="drawerTitle">Panel</h2></div><button class="icon-btn" id="close">×</button></div><div id="drawerContent"></div></aside>
 <div class="awareness-backdrop" id="awarenessBackdrop" hidden></div>
@@ -100,6 +109,6 @@
   <div class="awareness-grid"><div><span>Detection method</span><b id="detectionMethod">Awaiting permission</b></div><div><span>Last presence</span><b id="lastPresence">Never</b></div><div><span>Secure context</span><b id="secureContext">Checking…</b></div><div><span>Install status</span><b id="installStatus">Browser app</b></div></div>
   <button class="install-button" id="installButton" type="button" hidden>Install AURA on this wall PC</button>
 </section>
-<script src="./app.js"></script><script src="./presence.js"></script><script src="./home-gateway.js"></script><script src="./local-core.js"></script>
+<script src="./app.js"></script><script src="./presence.js"></script><script src="./home-gateway.js"></script><script src="./local-core.js"></script><script src="./workspace.js"></script>
 </body>
 </html>
