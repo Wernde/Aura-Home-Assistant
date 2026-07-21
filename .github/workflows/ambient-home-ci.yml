@@ -42,6 +42,7 @@ jobs:
             app.js
             workspace.css
             workspace.js
+            theme-polish.css
             manifest.webmanifest
             sw.js
             home-gateway.js
@@ -80,6 +81,7 @@ jobs:
           grep -q 'Ambient Home' docs/LIGHT_FIRST_COMMAND_CENTRE.md
           grep -q 'Privacy' index.html
           grep -q 'Home Assistant' index.html
+          grep -q 'workspace-surface' theme-polish.css
           echo "Light-first Ambient Home contract is present."
 
       - name: Validate workspace contract
@@ -116,6 +118,7 @@ jobs:
             app.js
             workspace.css
             workspace.js
+            theme-polish.css
             presence.css
             presence.js
             local-core.css
