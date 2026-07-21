@@ -1,0 +1,131 @@
+name: Ambient Home CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/light-first-command-centre
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ambient-home-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Aura Alpha
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate required Ambient Home files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_files=(
+            index.html
+            styles.css
+            app.js
+            workspace.css
+            workspace.js
+            theme-polish.css
+            manifest.webmanifest
+            sw.js
+            home-gateway.js
+            home-gateway.css
+            gateway/local-gateway.js
+          )
+          for file in "${required_files[@]}"; do
+            test -f "$file" || { echo "Missing required file: $file"; exit 1; }
+          done
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -path './.git' -prune -o -name '*.js' -type f -print0 |
+            while IFS= read -r -d '' file; do
+              echo "Checking $file"
+              node --check "$file"
+            done
+
+      - name: Run gateway tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f gateway/local-gateway.test.js ]; then
+            node --test gateway/local-gateway.test.js
+          else
+            echo "No gateway test file found; skipping."
+          fi
+
+      - name: Validate light-first design contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'color-scheme:light' styles.css
+          grep -q 'Ambient Home' docs/LIGHT_FIRST_COMMAND_CENTRE.md
+          grep -q 'Privacy' index.html
+          grep -q 'Home Assistant' index.html
+          grep -q 'workspace-surface' theme-polish.css
+          echo "Light-first Ambient Home contract is present."
+
+      - name: Validate workspace contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "requested" workspace.js
+          grep -q "prepared" workspace.js
+          grep -q "visible" workspace.js
+          grep -q "workspacePin" index.html
+          grep -q "workspaceExpand" index.html
+          grep -q "Source:" workspace.js
+          grep -q "unlock|disarm" workspace.js
+          echo "Registered workspace lifecycle and security guard are present."
+
+      - name: Validate local-first safety markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'AURA_ENTITY_ALLOWLIST' gateway/local-gateway.js
+          grep -q 'AURA_ALLOWED_ORIGINS' gateway/local-gateway.js
+          grep -q 'confirmed' gateway/local-gateway.js
+          echo "Gateway allowlist, origin and confirmation markers are present."
+
+      - name: Upload validated static application
+        uses: actions/upload-artifact@v4
+        with:
+          name: aura-ambient-home-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            index.html
+            styles.css
+            app.js
+            workspace.css
+            workspace.js
+            theme-polish.css
+            presence.css
+            presence.js
+            local-core.css
+            local-core.js
+            home-gateway.css
+            home-gateway.js
+            icon.svg
+            manifest.webmanifest
+            sw.js
+            docs/LIGHT_FIRST_COMMAND_CENTRE.md
