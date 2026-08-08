@@ -1,0 +1,68 @@
+name: AURA Builder Agents
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_file:
+        description: Task file inside the repository
+        required: true
+        default: builder/tasks/home-state-0.9.md
+      auto_commit:
+        description: Commit changes after checks and release review pass
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: [self-hosted, aura-dell]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout AURA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify local tools
+        shell: powershell
+        run: |
+          git --version
+          python --version
+          node --version
+          ollama --version
+          ollama list
+
+      - name: Prepare local builder config
+        shell: powershell
+        run: |
+          if (-not (Test-Path builder\config.json)) {
+            Copy-Item builder\config.example.json builder\config.json
+          }
+
+      - name: Run AURA Builder Agent Team
+        shell: powershell
+        run: |
+          $args = @('builder\aura_builder.py', '--task-file', '${{ inputs.task_file }}')
+          if ('${{ inputs.auto_commit }}' -eq 'true') { $args += '--auto-commit' }
+          python @args
+
+      - name: Push approved agent commit
+        if: ${{ inputs.auto_commit }}
+        shell: powershell
+        run: |
+          if ((git status --porcelain) -ne '') {
+            Write-Host 'Runner left uncommitted changes; refusing to push.'
+            exit 1
+          }
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Upload builder report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aura-builder-report
+          path: builder/runs/latest.md
+          if-no-files-found: warn
