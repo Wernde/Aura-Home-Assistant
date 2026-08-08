@@ -1,0 +1,12 @@
+{
+  "ollama_url": "http://127.0.0.1:11434",
+  "model": "qwen3-coder:30b",
+  "allow_dirty": false,
+  "test_commands": [
+    ["node", "--check", "app.js"],
+    ["node", "--check", "local-core.js"],
+    ["node", "--check", "presence.js"],
+    ["node", "--check", "home-gateway.js"],
+    ["node", "--check", "gateway/local-gateway.js"]
+  ]
+}
