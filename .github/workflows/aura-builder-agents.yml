@@ -60,6 +60,8 @@ jobs:
             (New-Object System.Text.UTF8Encoding($false))
           )
           git config --global --add safe.directory $env:GITHUB_WORKSPACE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git status --short
 
       - name: Run AURA Builder Agent Team
