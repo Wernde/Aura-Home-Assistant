@@ -81,7 +81,7 @@ jobs:
         if: ${{ inputs.auto_commit }}
         shell: powershell
         run: |
-          if ((git status --porcelain) -ne '') {
+          if (git status --porcelain) {
             Write-Host 'Runner left uncommitted changes; refusing to push.'
             exit 1
           }
