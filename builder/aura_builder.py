@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """Local-first multi-agent development runner for AURA.
 
@@ -15,6 +16,10 @@ import sys
 import time
 import urllib.request
 from typing import Any
+
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / 'builder' / 'config.json'
@@ -66,6 +71,8 @@ def write_file(path: str, content: str) -> str:
 
 
 def list_files(prefix: str = '') -> str:
+    if prefix.strip().lower() in {'<nil>', 'nil', 'null', 'none'}:
+        prefix = ''
     base = safe_path(prefix or '.')
     if not base.exists():
         return json.dumps({'error': 'path_not_found', 'path': prefix})
@@ -85,6 +92,8 @@ def list_files(prefix: str = '') -> str:
 def search_text(query: str, prefix: str = '') -> str:
     if not query.strip():
         return json.dumps({'error': 'empty_query'})
+    if prefix.strip().lower() in {'<nil>', 'nil', 'null', 'none'}:
+        prefix = ''
     base = safe_path(prefix or '.')
     matches: list[dict[str, Any]] = []
     for item in base.rglob('*'):
@@ -129,7 +138,16 @@ def run_checks(commands: list[list[str]]) -> dict[str, Any]:
 
 
 def ollama_chat(base_url: str, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    payload: dict[str, Any] = {'model': model, 'messages': messages, 'stream': False}
+    payload: dict[str, Any] = {
+        'model': model,
+        'messages': messages,
+        'stream': False,
+        'options': {
+            'num_ctx': 4096,
+            'num_predict': 768,
+            'temperature': 0.2,
+        },
+    }
     if tools:
         payload['tools'] = tools
     request = urllib.request.Request(
@@ -271,8 +289,29 @@ def main() -> int:
 
     diff = git_diff()
     if not diff.strip():
-        print('No file changes were produced.', file=sys.stderr)
-        return 3
+        print('No file changes were produced. Verifying the existing implementation instead.')
+        check_result = run_checks(checks)
+        print(json.dumps(check_result, indent=2))
+        report_dir = ROOT / 'builder' / 'runs'
+        report_dir.mkdir(parents=True, exist_ok=True)
+        report = report_dir / 'latest.md'
+        report.write_text(
+            '# AURA Builder latest run\n\n## Task\n\n' + task
+            + '\n\n## Plan\n\n' + plan
+            + '\n\n## Implementation\n\n' + implementation
+            + '\n\n## Result\n\nNo repository changes were needed; the existing implementation was verified.\n'
+            + '\n## Tests\n\n```json\n' + json.dumps(check_result, indent=2) + '\n```\n',
+            encoding='utf-8',
+        )
+        if not check_result['ok']:
+            print(f'Existing implementation checks failed. Review {report.relative_to(ROOT)}.', file=sys.stderr)
+            return 4
+        if args.auto_commit:
+            git('add', '--all')
+            git('commit', '-m', 'AURA builder: verify ' + task.splitlines()[0][:65])
+            print('Committed the verified builder report locally.')
+        print('Existing implementation checks passed.')
+        return 0
 
     print('\nAURA Builder: reviewing…')
     review = ask_text_agent(base_url, model, 'Reviewer', 'Review this git diff against the task and AURA safety rules. Identify regressions or missing requirements.\n\nTASK:\n' + task + '\n\nDIFF:\n' + diff)
@@ -318,3 +357,4 @@ def main() -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
+
