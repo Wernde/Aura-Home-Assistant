@@ -79,9 +79,9 @@ jobs:
           set -euo pipefail
           grep -q 'color-scheme:light' styles.css
           grep -q 'Ambient Home' docs/LIGHT_FIRST_COMMAND_CENTRE.md
+          grep -q 'theme-polish.css' index.html
           grep -q 'Privacy' index.html
           grep -q 'Home Assistant' index.html
-          grep -q 'workspace-surface' theme-polish.css
           echo "Light-first Ambient Home contract is present."
 
       - name: Validate workspace contract
@@ -91,11 +91,24 @@ jobs:
           grep -q "requested" workspace.js
           grep -q "prepared" workspace.js
           grep -q "visible" workspace.js
+          grep -q "updated" workspace.js
           grep -q "workspacePin" index.html
           grep -q "workspaceExpand" index.html
-          grep -q "Source:" workspace.js
-          grep -q "unlock|disarm" workspace.js
-          echo "Registered workspace lifecycle and security guard are present."
+          grep -q "calendar.family:" workspace.js
+          grep -q "aura:shared-context" workspace.js
+          grep -q "source:{label:'Sources'" workspace.js
+          grep -q "data-size=planning" workspace.css
+          grep -q "data-size=detailed" workspace.css
+          echo "Registered workspace lifecycle, responsive sizing and shared context are present."
+
+      - name: Validate Alpha security guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "unlock|disarm|open" workspace.js
+          grep -q "garage" workspace.js
+          grep -q "security action is blocked" workspace.js
+          echo "General-language unlock, disarm and garage opening remain blocked."
 
       - name: Validate local-first safety markers
         shell: bash
