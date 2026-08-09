@@ -38,9 +38,18 @@ jobs:
       - name: Prepare local builder config
         shell: powershell
         run: |
+          $model = 'qwen3:4b'
+          if (-not (ollama list | Select-String -SimpleMatch $model)) {
+            Write-Host "Installing tool-capable local builder model $model..."
+            ollama pull $model
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to install required Ollama model $model."
+            }
+          }
+
           $configPath = Join-Path $env:RUNNER_TEMP 'aura-builder-config.json'
           Copy-Item builder\config.example.json $configPath -Force
-          $config = (Get-Content $configPath -Raw) -replace 'qwen3-coder:30b','qwen2.5:0.5b'
+          $config = (Get-Content $configPath -Raw) -replace 'qwen3-coder:30b', $model
           [System.IO.File]::WriteAllText($configPath, $config, (New-Object System.Text.UTF8Encoding($false)))
           [System.IO.File]::AppendAllText(
             $env:GITHUB_ENV,
