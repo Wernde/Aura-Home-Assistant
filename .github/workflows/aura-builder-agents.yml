@@ -41,6 +41,10 @@ jobs:
           if (-not (Test-Path builder\config.json)) {
             Copy-Item builder\config.example.json builder\config.json
           }
+          (Get-Content builder\config.json) -replace 'qwen3-coder:30b','qwen2.5:0.5b' | Set-Content builder\config.json
+          Add-Content .git\info\exclude 'builder/config.json'
+          git config --global --add safe.directory $env:GITHUB_WORKSPACE
+          git status --short
 
       - name: Run AURA Builder Agent Team
         shell: powershell
