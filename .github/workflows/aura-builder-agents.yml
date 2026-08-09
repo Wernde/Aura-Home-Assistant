@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: [self-hosted, aura-dell]
+    runs-on: [self-hosted, aura, builder, ollama]
     timeout-minutes: 60
     steps:
       - name: Checkout AURA
