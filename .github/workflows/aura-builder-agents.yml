@@ -12,12 +12,16 @@ on:
         required: true
         type: boolean
         default: false
+  push:
+    branches:
+      - agent/remote-aura-run-20260809
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: ${{ github.event_name != 'push' || github.actor != 'github-actions[bot]' }}
     runs-on: [self-hosted, aura, builder, ollama]
     timeout-minutes: 60
     steps:
@@ -62,18 +66,25 @@ jobs:
       - name: Run AURA Builder Agent Team
         shell: powershell
         run: |
+          $taskFile = '${{ inputs.task_file }}'
+          $autoCommit = '${{ inputs.auto_commit }}'
+          if ('${{ github.event_name }}' -eq 'push') {
+            $taskFile = 'builder/tasks/home-state-0.9.md'
+            $autoCommit = 'true'
+          }
+
           $args = @(
             'builder\aura_builder.py',
             '--task-file',
-            '${{ inputs.task_file }}',
+            $taskFile,
             '--config',
             $env:AURA_BUILDER_CONFIG
           )
-          if ('${{ inputs.auto_commit }}' -eq 'true') { $args += '--auto-commit' }
+          if ($autoCommit -eq 'true') { $args += '--auto-commit' }
           python @args
 
       - name: Push approved agent commit
-        if: ${{ inputs.auto_commit }}
+        if: ${{ github.event_name == 'push' || inputs.auto_commit }}
         shell: powershell
         run: |
           if ((git status --porcelain) -ne '') {
