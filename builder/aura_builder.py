@@ -144,7 +144,7 @@ def ollama_chat(base_url: str, model: str, messages: list[dict[str, Any]], tools
         'stream': False,
         'options': {
             'num_ctx': 4096,
-            'num_predict': 768,
+            'num_predict': 256,
             'temperature': 0.2,
         },
     }
