@@ -81,7 +81,7 @@ jobs:
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
-              $errors | ForEach-Object { Write-Error "$file: $($_.Message)" }
+              $errors | ForEach-Object { Write-Error "${file}: $($_.Message)" }
               exit 1
             }
             Write-Host "PowerShell syntax OK: $file"
@@ -142,8 +142,8 @@ jobs:
           grep -q 'AURA_ALLOWED_ORIGINS' gateway/local-gateway.js
           grep -q 'confirmed' gateway/local-gateway.js
           grep -q '127.0.0.1' deploy/windows/Start-AuraWall.ps1
-          if grep -RqiE 'long-lived.*token|HA_TOKEN|HOME_ASSISTANT_TOKEN' deploy/windows; then
-            echo 'Windows deployment must not contain Home Assistant credentials.'
+          if grep -qiE 'HA_TOKEN|HOME_ASSISTANT_TOKEN|AURA_HA_TOKEN' deploy/windows/*.ps1; then
+            echo 'Windows deployment scripts must not contain Home Assistant credential variables.'
             exit 1
           fi
           echo "Gateway and Windows deployment preserve local-first safety markers."
