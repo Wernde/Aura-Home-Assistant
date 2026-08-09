@@ -40,9 +40,13 @@ def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
 
 
 def ensure_clean(allow_dirty: bool) -> None:
-    status = git('status', '--short').stdout.strip()
+    status = git('status', '--short').stdout.rstrip()
     if status and not allow_dirty:
-        raise RuntimeError('Working tree is not clean. Commit or stash changes, or set allow_dirty=true.')
+        raise RuntimeError(
+            'Working tree is not clean. Commit or stash changes, or set allow_dirty=true.\n'
+            'Dirty paths reported by git status --short:\n'
+            + status
+        )
 
 
 def read_file(path: str) -> str:
