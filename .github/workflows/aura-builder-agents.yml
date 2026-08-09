@@ -38,18 +38,28 @@ jobs:
       - name: Prepare local builder config
         shell: powershell
         run: |
-          if (-not (Test-Path builder\config.json)) {
-            Copy-Item builder\config.example.json builder\config.json
-          }
-          (Get-Content builder\config.json) -replace 'qwen3-coder:30b','qwen2.5:0.5b' | Set-Content builder\config.json
-          Add-Content .git\info\exclude 'builder/config.json'
+          $configPath = Join-Path $env:RUNNER_TEMP 'aura-builder-config.json'
+          Copy-Item builder\config.example.json $configPath -Force
+          $config = (Get-Content $configPath -Raw) -replace 'qwen3-coder:30b','qwen2.5:0.5b'
+          [System.IO.File]::WriteAllText($configPath, $config, (New-Object System.Text.UTF8Encoding($false)))
+          [System.IO.File]::AppendAllText(
+            $env:GITHUB_ENV,
+            "AURA_BUILDER_CONFIG=$configPath$([Environment]::NewLine)",
+            (New-Object System.Text.UTF8Encoding($false))
+          )
           git config --global --add safe.directory $env:GITHUB_WORKSPACE
           git status --short
 
       - name: Run AURA Builder Agent Team
         shell: powershell
         run: |
-          $args = @('builder\aura_builder.py', '--task-file', '${{ inputs.task_file }}')
+          $args = @(
+            'builder\aura_builder.py',
+            '--task-file',
+            '${{ inputs.task_file }}',
+            '--config',
+            $env:AURA_BUILDER_CONFIG
+          )
           if ('${{ inputs.auto_commit }}' -eq 'true') { $args += '--auto-commit' }
           python @args
 
