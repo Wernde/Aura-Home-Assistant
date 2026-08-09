@@ -48,6 +48,10 @@ jobs:
             home-gateway.js
             home-gateway.css
             gateway/local-gateway.js
+            deploy/windows/Install-AuraWall.ps1
+            deploy/windows/Update-AuraWall.ps1
+            deploy/windows/Start-AuraWall.ps1
+            deploy/windows/README.md
           )
           for file in "${required_files[@]}"; do
             test -f "$file" || { echo "Missing required file: $file"; exit 1; }
@@ -62,6 +66,26 @@ jobs:
               echo "Checking $file"
               node --check "$file"
             done
+
+      - name: Check Windows deployment PowerShell syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(
+            'deploy/windows/Install-AuraWall.ps1',
+            'deploy/windows/Update-AuraWall.ps1',
+            'deploy/windows/Start-AuraWall.ps1'
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$file: $($_.Message)" }
+              exit 1
+            }
+            Write-Host "PowerShell syntax OK: $file"
+          }
 
       - name: Run gateway tests
         shell: bash
@@ -117,7 +141,12 @@ jobs:
           grep -q 'AURA_ENTITY_ALLOWLIST' gateway/local-gateway.js
           grep -q 'AURA_ALLOWED_ORIGINS' gateway/local-gateway.js
           grep -q 'confirmed' gateway/local-gateway.js
-          echo "Gateway allowlist, origin and confirmation markers are present."
+          grep -q '127.0.0.1' deploy/windows/Start-AuraWall.ps1
+          if grep -RqiE 'long-lived.*token|HA_TOKEN|HOME_ASSISTANT_TOKEN' deploy/windows; then
+            echo 'Windows deployment must not contain Home Assistant credentials.'
+            exit 1
+          fi
+          echo "Gateway and Windows deployment preserve local-first safety markers."
 
       - name: Upload validated static application
         uses: actions/upload-artifact@v4
@@ -142,3 +171,7 @@ jobs:
             manifest.webmanifest
             sw.js
             docs/LIGHT_FIRST_COMMAND_CENTRE.md
+            deploy/windows/Install-AuraWall.ps1
+            deploy/windows/Update-AuraWall.ps1
+            deploy/windows/Start-AuraWall.ps1
+            deploy/windows/README.md
