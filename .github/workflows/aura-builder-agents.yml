@@ -1,3 +1,4 @@
+
 name: AURA Builder Agents
 
 on:
@@ -38,7 +39,9 @@ jobs:
       - name: Prepare local builder config
         shell: powershell
         run: |
-          $model = 'qwen3:4b'
+          # The Dell runner has 4 GB RAM. The 4B model consumes almost all of it
+          # and regularly exceeds the builder's request timeout.
+          $model = 'qwen2.5:1.5b'
           if (-not (ollama list | Select-String -SimpleMatch $model)) {
             Write-Host "Installing tool-capable local builder model $model..."
             ollama pull $model
@@ -89,3 +92,4 @@ jobs:
           name: aura-builder-report
           path: builder/runs/latest.md
           if-no-files-found: warn
+
