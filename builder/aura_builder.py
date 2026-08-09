@@ -165,12 +165,16 @@ def call_tool(name: str, args: dict[str, Any]) -> str:
     return json.dumps({'error': 'unknown_tool', 'name': name})
 
 
-def run_tool_agent(base_url: str, model: str, role: str, task: str, max_turns: int = 24) -> str:
+def run_tool_agent(base_url: str, model: str, role: str, task: str, task_source: str, max_turns: int = 24) -> str:
     system = (
         f'You are the AURA {role} agent. Work only inside this repository. Read AGENTS.md first and obey it. '
         'AURA is local-first and must keep working without paid APIs. Never request, expose or write secrets. '
         'Do not weaken privacy or real-world action confirmation. Use tools to inspect the repository before editing. '
         'Keep changes focused, preserve working features, and use Australian English. '
+        f'The product task below was loaded from {task_source}; its title/version is not a filename to find. '
+        'Mandatory workflow: call list_files, read AGENTS.md and relevant implementation files, then use write_file '
+        'to make focused changes. Do not finish with advice or ask the user to provide files already in the repository. '
+        'The original product task overrides planner notes if they conflict. '
         'When finished, return a concise summary, risks and checks that should run.'
     )
     messages: list[dict[str, Any]] = [
@@ -178,6 +182,7 @@ def run_tool_agent(base_url: str, model: str, role: str, task: str, max_turns: i
         {'role': 'user', 'content': task},
     ]
     final = ''
+    premature_finishes = 0
     for _ in range(max_turns):
         response = ollama_chat(base_url, model, messages, TOOLS)
         message = response.get('message', {})
@@ -185,7 +190,22 @@ def run_tool_agent(base_url: str, model: str, role: str, task: str, max_turns: i
         tool_calls = message.get('tool_calls') or []
         if not tool_calls:
             final = str(message.get('content', '')).strip()
-            break
+            if git_diff().strip():
+                break
+            premature_finishes += 1
+            if premature_finishes >= 3:
+                break
+            messages.append({
+                'role': 'user',
+                'content': (
+                    'No repository changes exist yet, so implementation is not complete. '
+                    'The task is already supplied below and its version is not a filename. '
+                    'Now call list_files, read AGENTS.md and the relevant source files, then call write_file '
+                    'with the required focused implementation. Do not respond with advice.\n\n'
+                    'ORIGINAL PRODUCT TASK:\n' + task
+                ),
+            })
+            continue
         for call in tool_calls:
             fn = call.get('function', {})
             name = str(fn.get('name', ''))
@@ -221,8 +241,11 @@ def main() -> int:
         return 2
     config = load_json(config_path)
     task = args.task or ''
+    task_source = 'the --task command-line argument'
     if args.task_file:
-        task = safe_path(args.task_file).read_text(encoding='utf-8')
+        task_path = safe_path(args.task_file)
+        task = task_path.read_text(encoding='utf-8')
+        task_source = str(task_path.relative_to(ROOT))
     if not task.strip():
         print('Provide --task or --task-file.', file=sys.stderr)
         return 2
@@ -237,7 +260,13 @@ def main() -> int:
     print(plan)
 
     print('\nAURA Builder: implementing…')
-    implementation = run_tool_agent(base_url, model, 'Implementer', task + '\n\nPlanner notes:\n' + plan)
+    implementation = run_tool_agent(
+        base_url,
+        model,
+        'Implementer',
+        task + '\n\nPlanner notes (advisory only; ignore any conflict with the task):\n' + plan,
+        task_source,
+    )
     print(implementation)
 
     diff = git_diff()
@@ -251,7 +280,13 @@ def main() -> int:
 
     if 'BLOCKER' in review.upper() or 'MUST FIX' in review.upper():
         print('\nAURA Builder: applying reviewer fixes…')
-        fix = run_tool_agent(base_url, model, 'Implementer', task + '\n\nReviewer feedback that must be resolved:\n' + review)
+        fix = run_tool_agent(
+            base_url,
+            model,
+            'Implementer',
+            task + '\n\nReviewer feedback that must be resolved:\n' + review,
+            task_source,
+        )
         print(fix)
 
     print('\nAURA Builder: testing…')
