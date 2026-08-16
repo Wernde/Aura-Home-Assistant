@@ -1,0 +1,9 @@
+interface:
+  display_name: "AURA Development Team"
+  short_description: "Build and review AURA with gated agent roles"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/icon.svg"
+  brand_color: "#45D9FF"
+  default_prompt: "Use $aura-development-team to implement the next AURA Home Assistant task and report the verified outcome."
+policy:
+  allow_implicit_invocation: true
