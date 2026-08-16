@@ -26,13 +26,13 @@ An implementation run with no code change fails. It can no longer be converted i
 
 ## One-time Dell setup
 
-Install Git, Python 3, Node.js and Ollama. Then install a coding model that fits the Dell hardware. The example configuration uses `qwen3-coder:30b`; choose a smaller model if the machine does not have enough RAM/VRAM.
+Install Git, Python 3, Node.js and Ollama. Then install a coding model that fits the Dell hardware. The example configuration uses `qwen2.5-coder:1.5b`, the coding-tuned model selected for the 4 GB Dell. Do not substitute the generic `qwen2.5:1.5b`; the first full workflow test showed that it could call tools but could not reliably inspect or edit this repository.
 
 From the repository root:
 
 ```powershell
 Copy-Item builder\config.example.json builder\config.json
-ollama pull qwen3-coder:30b
+ollama pull qwen2.5-coder:1.5b
 python builder\aura_builder.py --task-file builder\tasks\home-state-0.9.md
 ```
 

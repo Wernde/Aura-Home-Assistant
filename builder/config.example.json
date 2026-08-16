@@ -1,6 +1,6 @@
 {
   "ollama_url": "http://127.0.0.1:11434",
-  "model": "qwen3-coder:30b",
+  "model": "qwen2.5-coder:1.5b",
   "allow_dirty": false,
   "test_commands": [
     ["python", "-m", "unittest", "discover", "-s", "builder/tests", "-v"],
