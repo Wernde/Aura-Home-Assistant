@@ -1,0 +1,13 @@
+# Local Python artefacts
+__pycache__/
+*.py[cod]
+
+# Local AURA Builder configuration and generated reports
+builder/config.json
+builder/runs/
+
+# Local credentials and environment files
+.env
+.env.*
+ha-token.txt
+secrets.json

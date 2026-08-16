@@ -4,17 +4,25 @@ A local-first development team for AURA that runs on the Windows development mac
 
 ## What the agents do
 
-1. **Planner** — turns the queued release task into a focused implementation plan and acceptance checks.
-2. **Implementer** — inspects the repository with constrained tools and edits only repository files.
-3. **Reviewer** — reviews the git diff against the task, `AGENTS.md`, privacy rules and regression risks.
-4. **Tester** — runs only the explicitly configured local test commands.
-5. **Release Reviewer** — decides whether the change is ready to commit. Deployment is kept as a separate approval boundary.
+1. **Codebase Scout** — uses read-only repository tools to identify the smallest relevant files, tests and regression risks.
+2. **Planner** — turns the queued release task and scout evidence into a focused implementation plan.
+3. **UX/Creative Designer** — audits visual hierarchy, aesthetics, motion, the living face, touch usability, accessibility and wall-distance readability without silently expanding the task.
+4. **Implementer** — edits repository files with constrained, preconditioned tools.
+5. **Blueprint Curator** — updates relevant repo-native specifications when an approved product, design, architecture or scope decision changes; it never rewrites requirements merely to excuse the code.
+6. **Safety Reviewer** — checks privacy, secrets, real-world actions, confirmation semantics and local-first boundaries.
+7. **Code Reviewer** — checks requirements, regressions and maintainability independently from the safety review.
+8. **Tester** — runs only the explicitly configured deterministic test commands.
+9. **Fixer** — receives blocking review evidence and gets one bounded repair pass followed by mandatory re-review.
+10. **Release Reviewer** — returns an exact `READY` or `HOLD` decision. Deployment remains a separate approval boundary.
+11. **Development Manager** — reports the outcome directly to Dewald in plain language and ranks the next implementation opportunities without confusing suggestions with completed work.
 
-The same local Ollama model can fill each role, but each role receives different instructions and responsibilities. The runner keeps an auditable report in `builder/runs/latest.md`.
+The same local Ollama model fills each role sequentially so the 4 GB Dell is never asked to keep several models active at once. Each role receives different tools and instructions. The UX/Creative Designer is advisory; the Blueprint Curator may edit only repo-native documentation and may correctly make no change when the implementation does not alter an approved decision. The manager report is written into `builder/runs/latest.md` and the workflow artifact so it can be brought back into the ChatGPT command-centre conversation.
 
 ## Safety boundaries
 
-The model cannot run arbitrary shell commands. Its tools are limited to listing, reading, searching and writing repository files plus inspecting the current git diff. Paths that escape the repository or target `.git`, `.env` or known secret files are blocked. Home Assistant credentials remain outside the repository and browser. Production deployment and destructive operations are not exposed as agent tools.
+The model cannot run arbitrary shell commands. Its tools are limited to listing, reading, searching, exact text replacement, focused file writing and diff inspection. The Scout receives read-only tools. Paths that escape the repository or target `.git`, `.env` or known secret files are blocked case-insensitively. New files are included in diff evidence. Home Assistant credentials remain outside the repository and browser. Production deployment and destructive operations are not exposed as agent tools.
+
+An implementation run with no code change fails. It can no longer be converted into a successful “verified” release. For an intentional check-only run, use `--verify-only`; that mode skips all editing and release claims.
 
 ## One-time Dell setup
 
@@ -38,7 +46,13 @@ python builder\aura_builder.py --task-file builder\tasks\home-state-0.9.md --aut
 
 ## Running through a self-hosted GitHub runner
 
-The included workflow can run the builder on the Dell after a GitHub Actions self-hosted runner is installed and labelled `aura-dell`. This gives the agents a durable queue and logs while still keeping the model and Home Assistant access on the local machine.
+The included workflow can run the builder on the Dell after a GitHub Actions self-hosted runner is installed with the labels `aura`, `builder` and `ollama`. This gives the agents a durable queue and logs while still keeping the model and Home Assistant access on the local machine. A concurrency lock prevents two builder jobs from competing for the local model and working tree.
+
+Run the orchestration gate tests at any time:
+
+```powershell
+python -m unittest discover -s builder\tests -v
+```
 
 The workflow is manual by default. Automatic scheduled development should only be enabled after the local runner has been observed working safely for several releases.
 
