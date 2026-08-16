@@ -120,12 +120,13 @@ class CheckRunnerTests(unittest.TestCase):
 
 
 class WorkflowConfigurationTests(unittest.TestCase):
-    def test_dell_runner_uses_coding_tuned_small_model(self):
+    def test_dell_runner_uses_tool_native_small_model(self):
         workflow = (REPOSITORY_ROOT / '.github' / 'workflows' / 'aura-builder-agents.yml').read_text(encoding='utf-8')
         config = json.loads((REPOSITORY_ROOT / 'builder' / 'config.example.json').read_text(encoding='utf-8'))
-        self.assertIn("$model = 'qwen2.5-coder:1.5b'", workflow)
+        self.assertIn("$model = 'qwen3:1.7b'", workflow)
         self.assertNotIn("$model = 'qwen2.5:1.5b'", workflow)
-        self.assertEqual(config['model'], 'qwen2.5-coder:1.5b')
+        self.assertNotIn("$model = 'qwen2.5-coder:1.5b'", workflow)
+        self.assertEqual(config['model'], 'qwen3:1.7b')
 
 
 if __name__ == '__main__':

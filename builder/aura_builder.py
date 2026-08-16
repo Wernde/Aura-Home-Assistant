@@ -207,6 +207,7 @@ def ollama_chat(
         'model': model,
         'messages': messages,
         'stream': False,
+        'think': False,
         'options': {
             'num_ctx': 4096,
             'num_predict': num_predict,
@@ -282,17 +283,22 @@ def run_tool_agent(
     require_changes: bool = True,
     max_turns: int = 24,
 ) -> dict[str, Any]:
+    repository_index = list_files()
+    repository_rules = read_file('AGENTS.md')
     system = (
         f'You are the AURA {role} agent. Work only inside this repository. Read AGENTS.md first and obey it. '
         'AURA is local-first and must keep working without paid APIs. Never request, expose or write secrets. '
         'Do not weaken privacy or real-world action confirmation. Use tools to inspect the repository before editing. '
         'Keep changes focused, preserve working features, and use Australian English. '
         f'The product task below was loaded from {task_source}; its title/version is not a filename to find. '
-        'Mandatory workflow: call list_files, read AGENTS.md and relevant implementation files. '
+        'The real repository index and AGENTS.md rules are supplied below. Use exact paths from the index. '
+        'Call read_file on relevant implementation files before editing. Invoke supplied function tools natively; '
+        'never print, describe or wrap a pretend JSON tool call in normal text. '
         + ('Then use replace_text or write_file to make focused changes. ' if require_changes else '')
         + 'Do not ask the user to provide files already in the repository. '
         'The original product task overrides planner notes if they conflict. '
-        'When finished, return a concise summary, risks and checks that should run.'
+        'When finished, return a concise summary, risks and checks that should run.\n\n'
+        'REPOSITORY INDEX:\n' + repository_index + '\n\nAGENTS.MD:\n' + repository_rules
     )
     messages: list[dict[str, Any]] = [
         {'role': 'system', 'content': system},
@@ -319,8 +325,9 @@ def run_tool_agent(
                 'content': (
                     'No repository changes exist yet, so implementation is not complete. '
                     'The task is already supplied below and its version is not a filename. '
-                    'Now call list_files, read AGENTS.md and the relevant source files, then call write_file '
-                    'with the required focused implementation. Do not respond with advice.\n\n'
+                    'Use exact paths from the supplied repository index. Now invoke read_file natively for relevant source '
+                    'files, then invoke replace_text or write_file to implement the task. Do not print JSON, describe a '
+                    'future tool call or respond with advice.\n\n'
                     'ORIGINAL PRODUCT TASK:\n' + task
                 ),
             })
