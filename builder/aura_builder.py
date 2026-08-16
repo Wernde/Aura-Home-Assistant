@@ -33,10 +33,11 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def safe_path(raw: str) -> Path:
-    candidate = (ROOT / raw).resolve()
-    if candidate != ROOT and ROOT not in candidate.parents:
+    root = ROOT.resolve()
+    candidate = (root / raw).resolve()
+    if candidate != root and root not in candidate.parents:
         raise ValueError('Path escapes repository root')
-    if any(part.lower() in BLOCKED_NAMES for part in candidate.relative_to(ROOT).parts):
+    if any(part.lower() in BLOCKED_NAMES for part in candidate.relative_to(root).parts):
         raise ValueError('Path is protected')
     return candidate
 

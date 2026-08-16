@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -31,6 +32,12 @@ class RepositoryTestCase(unittest.TestCase):
 
 
 class PathSafetyTests(RepositoryTestCase):
+    def test_accepts_a_relative_repository_root(self):
+        builder.ROOT = Path(os.path.relpath(self.root, Path.cwd()))
+        target = self.root / 'relative-root.txt'
+        target.write_text('safe\n', encoding='utf-8')
+        self.assertEqual(builder.safe_path('relative-root.txt'), target.resolve())
+
     def test_rejects_traversal_and_protected_names_case_insensitively(self):
         for path in ('../outside.txt', '.git/config', '.ENV', 'nested/SECRETS.JSON'):
             with self.subTest(path=path), self.assertRaises(ValueError):
