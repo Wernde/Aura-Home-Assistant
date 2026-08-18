@@ -26,6 +26,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / 'builder' / 'config.json'
 BLOCKED_NAMES = {'.git', '.env', '.env.local', 'ha-token.txt', 'secrets.json'}
 MAX_FILE_BYTES = 250_000
+OLLAMA_TIMEOUT_SECONDS = 180
+PREFLIGHT_TIMEOUT_SECONDS = 90
+TOOL_AGENT_NUM_PREDICT = 384
+
+
+class AgentRuntimeError(RuntimeError):
+    def __init__(self, role: str, cause: Exception, tool_audit: list[dict[str, Any]]):
+        super().__init__(f'{role} failed: {type(cause).__name__}: {cause}')
+        self.role = role
+        self.cause_type = type(cause).__name__
+        self.tool_audit = tool_audit
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -202,6 +213,7 @@ def ollama_chat(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None = None,
     num_predict: int = 512,
+    timeout_seconds: int = OLLAMA_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         'model': model,
@@ -222,7 +234,7 @@ def ollama_chat(
         headers={'Content-Type': 'application/json'},
         method='POST',
     )
-    with urllib.request.urlopen(request, timeout=180) as response:
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
         return json.loads(response.read().decode('utf-8'))
 
 
@@ -235,6 +247,7 @@ TOOLS = [
     {'type': 'function', 'function': {'name': 'git_diff', 'description': 'Inspect the current uncommitted diff.', 'parameters': {'type': 'object', 'properties': {}, 'required': []}}},
 ]
 READ_ONLY_TOOLS = [tool for tool in TOOLS if tool['function']['name'] in {'list_files', 'read_file', 'search_text', 'git_diff'}]
+LIST_FILES_TOOL = [tool for tool in TOOLS if tool['function']['name'] == 'list_files']
 
 
 def call_tool(name: str, args: dict[str, Any]) -> str:
@@ -270,6 +283,72 @@ def audit_tool_result(name: str, result: str) -> dict[str, Any]:
     elif isinstance(parsed, list):
         summary['items'] = len(parsed)
     return summary
+
+
+def preflight_native_tools(base_url: str, model: str) -> dict[str, Any]:
+    """Fail quickly unless the configured model makes a real native tool call."""
+    started = time.time()
+    audit: list[dict[str, Any]] = []
+    try:
+        response = ollama_chat(
+            base_url,
+            model,
+            [
+                {
+                    'role': 'system',
+                    'content': (
+                        'You are the AURA Builder preflight. Invoke the supplied list_files function natively. '
+                        'Do not print JSON, explain the call or answer in normal text.'
+                    ),
+                },
+                {'role': 'user', 'content': 'Call list_files with prefix builder now.'},
+            ],
+            LIST_FILES_TOOL,
+            num_predict=64,
+            timeout_seconds=PREFLIGHT_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        return {
+            'ok': False,
+            'duration_s': round(time.time() - started, 2),
+            'tool_calls': audit,
+            'error': {'type': type(exc).__name__, 'message': str(exc)},
+        }
+
+    message = response.get('message', {})
+    for call in message.get('tool_calls') or []:
+        fn = call.get('function', {})
+        name = str(fn.get('name', ''))
+        args = fn.get('arguments') or {}
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError as exc:
+                args = {'_invalid_arguments': str(exc)}
+        try:
+            if '_invalid_arguments' in args:
+                raise ValueError('Invalid JSON tool arguments: ' + args['_invalid_arguments'])
+            if name != 'list_files':
+                raise ValueError(f'Unexpected preflight tool: {name}')
+            result = call_tool(name, args)
+        except Exception as exc:
+            result = json.dumps({'error': type(exc).__name__, 'message': str(exc)})
+        audit.append({
+            'tool': name,
+            'argument_names': sorted(args),
+            'result': audit_tool_result(name, result),
+        })
+
+    valid = any(item['tool'] == 'list_files' and 'error' not in item['result'] for item in audit)
+    return {
+        'ok': valid,
+        'duration_s': round(time.time() - started, 2),
+        'tool_calls': audit,
+        'error': None if valid else {
+            'type': 'NativeToolPreflightFailed',
+            'message': 'Model returned no valid native list_files call.',
+        },
+    }
 
 
 def run_tool_agent(
@@ -309,7 +388,10 @@ def run_tool_agent(
     tool_audit: list[dict[str, Any]] = []
     baseline = git_diff()
     for _ in range(max_turns):
-        response = ollama_chat(base_url, model, messages, tools, num_predict=768)
+        try:
+            response = ollama_chat(base_url, model, messages, tools, num_predict=TOOL_AGENT_NUM_PREDICT)
+        except Exception as exc:
+            raise AgentRuntimeError(role, exc, tool_audit) from exc
         message = response.get('message', {})
         messages.append(message)
         tool_calls = message.get('tool_calls') or []
@@ -456,6 +538,19 @@ def main() -> int:
         print(f'Verification report: {report.relative_to(ROOT)}')
         return 0 if check_result['ok'] else 4
 
+    print('AURA Builder: checking native model tools…')
+    preflight = preflight_native_tools(base_url, model)
+    print(json.dumps(preflight, indent=2))
+    if not preflight['ok']:
+        report = write_report([
+            ('Task', task),
+            ('Model preflight', '```json\n' + json.dumps(preflight, indent=2) + '\n```'),
+            ('Tool audit', '```json\n' + json.dumps(preflight.get('tool_calls', []), indent=2) + '\n```'),
+            ('Result', 'HOLD: the configured model did not complete a valid native tool call within the preflight budget. No agent roles or repository edits were started.'),
+        ])
+        print(f'Model preflight failed. Review {report.relative_to(ROOT)}.', file=sys.stderr)
+        return 5
+
     print('AURA Builder: scouting…')
     scout = run_tool_agent(
         base_url,
@@ -465,7 +560,7 @@ def main() -> int:
         task_source,
         tools=READ_ONLY_TOOLS,
         require_changes=False,
-        max_turns=12,
+        max_turns=8,
     )
     print(agent_summary(scout))
 
@@ -480,7 +575,7 @@ def main() -> int:
         'Preserve the approved dark holographic identity, but do not treat the current aesthetics as untouchable. '
         'Do not edit files and do not expand the task beyond its stated outcome.\n\nTASK:\n'
         + task + '\n\nSCOUT EVIDENCE:\n' + agent_summary(scout),
-        num_predict=640,
+        num_predict=384,
     )
     print(ux_direction)
 
@@ -493,7 +588,7 @@ def main() -> int:
         'consider the UX/Creative Designer advice where it supports the task, and do not invent files.\n\nTASK:\n'
         + task + '\n\nSCOUT EVIDENCE:\n' + agent_summary(scout)
         + '\n\nUX/CREATIVE DIRECTION:\n' + ux_direction,
-        num_predict=640,
+        num_predict=384,
     )
     print(plan)
 
@@ -525,7 +620,7 @@ def main() -> int:
             + '\n\nSCOUT:\n' + agent_summary(scout)
             + '\n\nIMPLEMENTER:\n' + agent_summary(implementation)
             + '\n\nTESTS:\n' + json.dumps(check_result),
-            num_predict=768,
+            num_predict=512,
         )
         report = write_report([
             ('Task', task),
@@ -565,10 +660,10 @@ def main() -> int:
         + task + '\n\nDIFF:\n' + diff
     )
     print('\nAURA Builder: safety review…')
-    safety_review = ask_text_agent(base_url, model, 'Safety Reviewer', review_prompt, num_predict=640)
+    safety_review = ask_text_agent(base_url, model, 'Safety Reviewer', review_prompt, num_predict=384)
     print(safety_review)
     print('\nAURA Builder: code review…')
-    code_review = ask_text_agent(base_url, model, 'Code Reviewer', review_prompt, num_predict=640)
+    code_review = ask_text_agent(base_url, model, 'Code Reviewer', review_prompt, num_predict=384)
     print(code_review)
 
     reviews_pass = all(
@@ -604,8 +699,8 @@ def main() -> int:
             diff = git_diff()
             post_fix_prompt = review_prompt.split('\n\nDIFF:\n', 1)[0] + '\n\nDIFF:\n' + diff
             print('\nAURA Builder: re-running safety and code reviews…')
-            safety_review = ask_text_agent(base_url, model, 'Safety Reviewer', post_fix_prompt, num_predict=640)
-            code_review = ask_text_agent(base_url, model, 'Code Reviewer', post_fix_prompt, num_predict=640)
+            safety_review = ask_text_agent(base_url, model, 'Safety Reviewer', post_fix_prompt, num_predict=384)
+            code_review = ask_text_agent(base_url, model, 'Code Reviewer', post_fix_prompt, num_predict=384)
             print(safety_review)
             print(code_review)
         reviews_pass = all(
@@ -651,7 +746,7 @@ def main() -> int:
         + '\n\nCODE REVIEW:\n' + code_review
         + '\n\nTESTS:\n' + json.dumps(check_result)
         + '\n\nRELEASE REVIEW:\n' + release,
-        num_predict=896,
+        num_predict=512,
     )
     print(manager)
 
@@ -690,5 +785,26 @@ def main() -> int:
     return 0
 
 
+def guarded_main() -> int:
+    """Always leave uploadable failure evidence when an unexpected error escapes."""
+    try:
+        return main()
+    except Exception as exc:
+        failure = {
+            'type': type(exc).__name__,
+            'message': str(exc),
+        }
+        role = getattr(exc, 'role', 'Builder runtime')
+        tool_audit = getattr(exc, 'tool_audit', [])
+        report = write_report([
+            ('Failed role', role),
+            ('Runtime failure', '```json\n' + json.dumps(failure, indent=2) + '\n```'),
+            ('Tool audit', '```json\n' + json.dumps(tool_audit, indent=2) + '\n```'),
+            ('Result', 'HOLD: the builder stopped unexpectedly. No release or push is approved.'),
+        ])
+        print(f'AURA Builder stopped unexpectedly. Review {report.relative_to(ROOT)}.', file=sys.stderr)
+        return 5
+
+
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(guarded_main())

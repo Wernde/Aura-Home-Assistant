@@ -80,6 +80,22 @@ class DecisionGateTests(unittest.TestCase):
 
 
 class AgentLoopTests(unittest.TestCase):
+    def test_preflight_requires_a_real_native_list_files_call(self):
+        response = {'message': {'role': 'assistant', 'content': '', 'tool_calls': [
+            {'function': {'name': 'list_files', 'arguments': {'prefix': 'builder'}}}
+        ]}}
+        with mock.patch.object(builder, 'ollama_chat', return_value=response):
+            result = builder.preflight_native_tools('http://localhost:11434', 'tiny')
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['tool_calls'][0]['tool'], 'list_files')
+
+    def test_preflight_rejects_text_instead_of_a_native_call(self):
+        response = {'message': {'role': 'assistant', 'content': '{"name":"list_files"}'}}
+        with mock.patch.object(builder, 'ollama_chat', return_value=response):
+            result = builder.preflight_native_tools('http://localhost:11434', 'tiny')
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['error']['type'], 'NativeToolPreflightFailed')
+
     def test_implementer_no_change_is_reported_not_claimed_complete(self):
         responses = [
             {'message': {'role': 'assistant', 'content': 'I only made a plan.'}},
@@ -118,15 +134,30 @@ class CheckRunnerTests(unittest.TestCase):
         self.assertEqual(result['results'][0]['returncode'], 124)
         self.assertIn('timed out', result['results'][0]['stderr'])
 
+    def test_unexpected_failure_writes_hold_report(self):
+        original_root = builder.ROOT
+        with tempfile.TemporaryDirectory() as tempdir:
+            builder.ROOT = Path(tempdir)
+            try:
+                with mock.patch.object(builder, 'main', side_effect=TimeoutError('model stalled')):
+                    result = builder.guarded_main()
+                report = (builder.ROOT / 'builder' / 'runs' / 'latest.md').read_text(encoding='utf-8')
+            finally:
+                builder.ROOT = original_root
+        self.assertEqual(result, 5)
+        self.assertIn('HOLD', report)
+        self.assertIn('TimeoutError', report)
+
 
 class WorkflowConfigurationTests(unittest.TestCase):
     def test_dell_runner_uses_tool_native_small_model(self):
         workflow = (REPOSITORY_ROOT / '.github' / 'workflows' / 'aura-builder-agents.yml').read_text(encoding='utf-8')
         config = json.loads((REPOSITORY_ROOT / 'builder' / 'config.example.json').read_text(encoding='utf-8'))
-        self.assertIn("$model = 'qwen3:1.7b'", workflow)
+        self.assertIn("$model = 'qwen3:0.6b'", workflow)
+        self.assertNotIn("$model = 'qwen3:1.7b'", workflow)
         self.assertNotIn("$model = 'qwen2.5:1.5b'", workflow)
         self.assertNotIn("$model = 'qwen2.5-coder:1.5b'", workflow)
-        self.assertEqual(config['model'], 'qwen3:1.7b')
+        self.assertEqual(config['model'], 'qwen3:0.6b')
 
 
 if __name__ == '__main__':

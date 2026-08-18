@@ -16,7 +16,7 @@ A local-first development team for AURA that runs on the Windows development mac
 10. **Release Reviewer** — returns an exact `READY` or `HOLD` decision. Deployment remains a separate approval boundary.
 11. **Development Manager** — reports the outcome directly to Dewald in plain language and ranks the next implementation opportunities without confusing suggestions with completed work.
 
-The same local Ollama model fills each role sequentially so the 4 GB Dell is never asked to keep several models active at once. Each role receives different tools and instructions. The UX/Creative Designer is advisory; the Blueprint Curator may edit only repo-native documentation and may correctly make no change when the implementation does not alter an approved decision. The manager report is written into `builder/runs/latest.md` and the workflow artifact so it can be brought back into the ChatGPT command-centre conversation.
+The same local Ollama model fills each role sequentially so the 4 GB Dell is never asked to keep several models active at once. Each role receives different tools and instructions. The UX/Creative Designer is advisory; the Blueprint Curator may edit only repo-native documentation and may correctly make no change when the implementation does not alter an approved decision. The manager report is written into `builder/runs/latest.md` and the workflow artifact so it can be brought back into the ChatGPT command-centre conversation. Preflight and unexpected runtime failures also write a `HOLD` report so a failed run never leaves an empty artifact upload.
 
 ## Safety boundaries
 
@@ -26,13 +26,13 @@ An implementation run with no code change fails. It can no longer be converted i
 
 ## One-time Dell setup
 
-Install Git, Python 3, Node.js and Ollama. Then install a tool-capable model that fits the Dell hardware. The example configuration uses `qwen3:1.7b`, selected for native Ollama tool calling within the 4 GB limit. The first full tests rejected `qwen2.5:1.5b` because it could not reliably inspect or edit the repository and rejected `qwen2.5-coder:1.5b` because it printed pretend JSON calls instead of invoking the supplied tools.
+Install Git, Python 3, Node.js and Ollama. Then install a tool-capable model that fits the Dell hardware. The example configuration uses `qwen3:0.6b` (about 523 MB), selected for native Ollama tool calling within the 4 GB limit. The builder requires a valid native `list_files` call within a 90-second preflight before any role starts. The first full tests rejected `qwen2.5:1.5b` because it could not reliably inspect or edit the repository, rejected `qwen2.5-coder:1.5b` because it printed pretend JSON calls instead of invoking the supplied tools, and rejected `qwen3:1.7b` on this Dell because its first Scout response timed out before any tool call.
 
 From the repository root:
 
 ```powershell
 Copy-Item builder\config.example.json builder\config.json
-ollama pull qwen3:1.7b
+ollama pull qwen3:0.6b
 python builder\aura_builder.py --task-file builder\tasks\home-state-0.9.md
 ```
 
