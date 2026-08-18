@@ -1,5 +1,6 @@
 {
-  "request_id": "2026-08-18-home-state-0.9a-attempt-4",
+  "request_id": "2026-08-18-home-state-0.9a-attempt-5",
   "task_file": "builder/tasks/home-state-0.9a-room-cards.md",
-  "auto_commit": false
+  "auto_commit": false,
+  "mode": "review-last-commit"
 }

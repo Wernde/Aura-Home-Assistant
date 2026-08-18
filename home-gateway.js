@@ -140,6 +140,7 @@
 
   function actionFor(entity) {
     if (!entity?.controllable) return null;
+    if (['unavailable', 'unknown'].includes(String(entity.state).toLowerCase())) return null;
     if (['light', 'switch', 'fan'].includes(entity.domain)) {
       const turningOff = entity.state === 'on';
       return { service: turningOff ? 'turn_off' : 'turn_on', expectedState: turningOff ? 'off' : 'on', label: `${turningOff ? 'Turn off' : 'Turn on'} ${entity.name}` };
@@ -157,18 +158,33 @@
     if (!controllable.length) {
       return '<div class="gateway-warning"><strong>Read-only mode.</strong> Home Assistant is connected, but no entities are explicitly allowlisted. Set <code>AURA_ENTITY_ALLOWLIST</code> in the gateway environment.</div>';
     }
-    return controllable.map((entity) => {
-      const action = actionFor(entity);
-      return `
-        <div class="gateway-entity" data-entity-state="${esc(entity.state)}">
-          <div class="gateway-entity-copy">
-            <span>${esc(entity.domain.replace('_', ' '))} · allowlisted</span>
-            <b>${esc(entity.name)}</b>
-            <small>${esc(entity.entityId)} · ${esc(entity.state)}</small>
-          </div>
-          ${action ? `<button class="secondary gateway-entity-action" type="button" data-entity-id="${esc(entity.entityId)}" data-service="${esc(action.service)}" data-expected-state="${esc(action.expectedState)}" data-label="${esc(action.label)}">${esc(action.label.replace(` ${entity.name}`, ''))}</button>` : '<span class="gateway-read-only">Read only</span>'}
-        </div>`;
-    }).join('');
+    const grouped = new Map();
+    controllable.forEach((entity) => {
+      const room = String(entity.room || '').trim() || 'Unassigned';
+      if (!grouped.has(room)) grouped.set(room, []);
+      grouped.get(room).push(entity);
+    });
+    const rooms = [...grouped.keys()].sort((left, right) => {
+      if (left === 'Unassigned') return 1;
+      if (right === 'Unassigned') return -1;
+      return left.localeCompare(right, 'en-AU', { sensitivity: 'base' });
+    });
+    return rooms.map((room) => `
+      <section class="gateway-room gateway-entities">
+        <h4>${esc(room)}</h4>
+        ${grouped.get(room).map((entity) => {
+          const action = actionFor(entity);
+          return `
+            <div class="gateway-entity" data-entity-state="${esc(entity.state)}">
+              <div class="gateway-entity-copy">
+                <span>${esc(entity.domain.replace('_', ' '))} · allowlisted</span>
+                <b>${esc(entity.name)}</b>
+                <small>${esc(entity.entityId)} · ${esc(entity.state)} · Updated ${esc(formatTime(entity.updatedAt))}</small>
+              </div>
+              ${action ? `<button class="secondary gateway-entity-action" type="button" data-entity-id="${esc(entity.entityId)}" data-service="${esc(action.service)}" data-expected-state="${esc(action.expectedState)}" data-label="${esc(action.label)}">${esc(action.label.replace(` ${entity.name}`, ''))}</button>` : '<span class="gateway-read-only">Read only</span>'}
+            </div>`;
+        }).join('')}
+      </section>`).join('');
   }
 
   function bindPanelActions() {
