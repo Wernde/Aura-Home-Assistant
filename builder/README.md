@@ -20,7 +20,7 @@ The same local Ollama model fills each role sequentially so the 4 GB Dell is nev
 
 ## Safety boundaries
 
-The model cannot run arbitrary shell commands. Its tools are limited to listing, reading, searching, exact text replacement, focused file writing and diff inspection. The Scout receives read-only tools. Paths that escape the repository or target `.git`, `.env` or known secret files are blocked case-insensitively. New files are included in diff evidence. Home Assistant credentials remain outside the repository and browser. Production deployment and destructive operations are not exposed as agent tools.
+The model cannot run arbitrary shell commands. Its tools are limited to listing, bounded line-range reading, searching, exact text replacement, new-file creation and bounded diff inspection. Existing files cannot be overwritten wholesale; they must be changed through preconditioned exact replacements. The Scout receives read-only tools. Paths that escape the repository or target `.git`, `.env` or known secret files are blocked case-insensitively. Generated dependency/cache directories are excluded from discovery. New files are included in diff evidence. Home Assistant credentials remain outside the repository and browser. Production deployment and destructive operations are not exposed as agent tools.
 
 An implementation run with no code change fails. It can no longer be converted into a successful “verified” release. For an intentional check-only run, use `--verify-only`; that mode skips all editing and release claims.
 
@@ -36,7 +36,7 @@ ollama pull qwen3:0.6b
 python builder\aura_builder.py --task-file builder\tasks\home-state-0.9.md
 ```
 
-Review the diff and `builder/runs/latest.md`. When the checks are clean, the same task can be run with:
+Review the diff and `builder/runs/latest.md`. The builder also writes `builder/runs/latest.patch`, allowing a non-auto-commit workflow artifact to preserve the exact proposed change after the runner cleans its checkout. When the checks are clean, the same task can be run with:
 
 ```powershell
 python builder\aura_builder.py --task-file builder\tasks\home-state-0.9.md --auto-commit

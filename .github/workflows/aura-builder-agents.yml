@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout AURA
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -56,8 +56,10 @@ jobs:
 
           $configPath = Join-Path $env:RUNNER_TEMP 'aura-builder-config.json'
           Copy-Item builder\config.example.json $configPath -Force
-          $config = (Get-Content $configPath -Raw) -replace 'qwen3:1.7b', $model
-          [System.IO.File]::WriteAllText($configPath, $config, (New-Object System.Text.UTF8Encoding($false)))
+          $config = Get-Content $configPath -Raw | ConvertFrom-Json
+          $config.model = $model
+          $configJson = $config | ConvertTo-Json -Depth 10
+          [System.IO.File]::WriteAllText($configPath, $configJson, (New-Object System.Text.UTF8Encoding($false)))
           [System.IO.File]::AppendAllText(
             $env:GITHUB_ENV,
             "AURA_BUILDER_CONFIG=$configPath$([Environment]::NewLine)",
@@ -97,9 +99,9 @@ jobs:
 
       - name: Upload builder report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aura-builder-report
-          path: builder/runs/latest.md
+          path: builder/runs/
           if-no-files-found: warn
 

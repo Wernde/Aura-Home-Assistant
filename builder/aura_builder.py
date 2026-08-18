@@ -25,7 +25,10 @@ if hasattr(sys.stdout, 'reconfigure'):
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = ROOT / 'builder' / 'config.json'
 BLOCKED_NAMES = {'.git', '.env', '.env.local', 'ha-token.txt', 'secrets.json'}
+IGNORED_DIRECTORY_NAMES = {'__pycache__', '.pytest_cache', 'node_modules', 'runs'}
 MAX_FILE_BYTES = 250_000
+MAX_READ_LINES = 220
+MAX_MODEL_TEXT_CHARS = 9_000
 OLLAMA_TIMEOUT_SECONDS = 180
 PREFLIGHT_TIMEOUT_SECONDS = 90
 TOOL_AGENT_NUM_PREDICT = 384
@@ -67,19 +70,47 @@ def ensure_clean(allow_dirty: bool) -> None:
         )
 
 
-def read_file(path: str) -> str:
+def read_file(path: str, start_line: int = 1, end_line: int | None = None) -> str:
     file_path = safe_path(path)
     if not file_path.exists() or not file_path.is_file():
         return json.dumps({'error': 'file_not_found', 'path': path})
     if file_path.stat().st_size > MAX_FILE_BYTES:
         return json.dumps({'error': 'file_too_large', 'path': path})
-    return file_path.read_text(encoding='utf-8', errors='replace')
+    lines = file_path.read_text(encoding='utf-8', errors='replace').splitlines(keepends=True)
+    total = len(lines)
+    if total == 0:
+        return ''
+    if start_line < 1:
+        return json.dumps({'error': 'invalid_line_range', 'path': path})
+    if end_line is None:
+        end_line = min(total, start_line + MAX_READ_LINES - 1)
+    if end_line < start_line or end_line - start_line + 1 > MAX_READ_LINES:
+        return json.dumps({
+            'error': 'invalid_line_range',
+            'path': path,
+            'maximum_lines': MAX_READ_LINES,
+        })
+    content = ''.join(lines[start_line - 1:end_line])
+    if len(content) > MAX_MODEL_TEXT_CHARS:
+        return (
+            f'[Showing a bounded excerpt from lines {start_line}-{min(end_line, total)} of {total} from {path}. '
+            'Use search_text or request a narrower line range for an exact edit.]\n'
+            + truncate_for_model(content)
+        )
+    if start_line == 1 and end_line >= total:
+        return content
+    return (
+        f'[Showing lines {start_line}-{min(end_line, total)} of {total} from {path}. '
+        'Request another range if needed.]\n' + content
+    )
 
 
 def write_file(path: str, content: str) -> str:
     if len(content.encode('utf-8')) > MAX_FILE_BYTES:
         return json.dumps({'error': 'file_too_large', 'path': path})
     file_path = safe_path(path)
+    if file_path.exists():
+        return json.dumps({'error': 'file_exists_use_replace_text', 'path': path})
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(content, encoding='utf-8')
     return json.dumps({'ok': True, 'path': str(file_path.relative_to(ROOT)), 'bytes': len(content.encode('utf-8'))})
@@ -117,7 +148,7 @@ def list_files(prefix: str = '') -> str:
         if not item.is_file():
             continue
         rel = item.relative_to(ROOT)
-        if any(part.lower() in BLOCKED_NAMES for part in rel.parts):
+        if any(part.lower() in BLOCKED_NAMES | IGNORED_DIRECTORY_NAMES for part in rel.parts):
             continue
         if len(results) >= 300:
             break
@@ -136,7 +167,7 @@ def search_text(query: str, prefix: str = '') -> str:
         if not item.is_file() or item.stat().st_size > MAX_FILE_BYTES:
             continue
         rel = item.relative_to(ROOT)
-        if any(part.lower() in BLOCKED_NAMES for part in rel.parts):
+        if any(part.lower() in BLOCKED_NAMES | IGNORED_DIRECTORY_NAMES for part in rel.parts):
             continue
         try:
             lines = item.read_text(encoding='utf-8', errors='replace').splitlines()
@@ -177,7 +208,31 @@ def git_diff() -> str:
         except (OSError, ValueError):
             continue
         diff += ''.join(difflib.unified_diff([], content, fromfile='/dev/null', tofile='b/' + rel))
-    return diff[-80_000:]
+    return diff
+
+
+def truncate_for_model(text: str, limit: int = MAX_MODEL_TEXT_CHARS) -> str:
+    if len(text) <= limit:
+        return text
+    half = (limit - 120) // 2
+    return text[:half] + '\n\n[...middle omitted to fit local model context...]\n\n' + text[-half:]
+
+
+def check_summary(result: dict[str, Any]) -> dict[str, Any]:
+    """Keep model-facing test evidence small while retaining every failure."""
+    summary: list[dict[str, Any]] = []
+    for item in result.get('results', []):
+        evidence = {
+            'command': item.get('command'),
+            'ok': item.get('ok'),
+            'returncode': item.get('returncode'),
+            'duration_s': item.get('duration_s'),
+        }
+        if not item.get('ok'):
+            evidence['stdout'] = str(item.get('stdout', ''))[-1_000:]
+            evidence['stderr'] = str(item.get('stderr', ''))[-1_000:]
+        summary.append(evidence)
+    return {'ok': bool(result.get('ok')), 'results': summary}
 
 
 def run_checks(commands: list[list[str]]) -> dict[str, Any]:
@@ -240,9 +295,9 @@ def ollama_chat(
 
 TOOLS = [
     {'type': 'function', 'function': {'name': 'list_files', 'description': 'List repository files below a safe relative prefix.', 'parameters': {'type': 'object', 'properties': {'prefix': {'type': 'string'}}, 'required': []}}},
-    {'type': 'function', 'function': {'name': 'read_file', 'description': 'Read a UTF-8 repository file.', 'parameters': {'type': 'object', 'properties': {'path': {'type': 'string'}}, 'required': ['path']}}},
+    {'type': 'function', 'function': {'name': 'read_file', 'description': 'Read up to 220 lines from a UTF-8 repository file. Use start_line and end_line to inspect another range.', 'parameters': {'type': 'object', 'properties': {'path': {'type': 'string'}, 'start_line': {'type': 'integer'}, 'end_line': {'type': 'integer'}}, 'required': ['path']}}},
     {'type': 'function', 'function': {'name': 'search_text', 'description': 'Search text in repository files.', 'parameters': {'type': 'object', 'properties': {'query': {'type': 'string'}, 'prefix': {'type': 'string'}}, 'required': ['query']}}},
-    {'type': 'function', 'function': {'name': 'write_file', 'description': 'Write a complete UTF-8 file inside the repository. Never write secrets.', 'parameters': {'type': 'object', 'properties': {'path': {'type': 'string'}, 'content': {'type': 'string'}}, 'required': ['path', 'content']}}},
+    {'type': 'function', 'function': {'name': 'write_file', 'description': 'Create a new UTF-8 file inside the repository. It refuses to overwrite existing files. Never write secrets.', 'parameters': {'type': 'object', 'properties': {'path': {'type': 'string'}, 'content': {'type': 'string'}}, 'required': ['path', 'content']}}},
     {'type': 'function', 'function': {'name': 'replace_text', 'description': 'Replace one exact text block in an existing UTF-8 file. Prefer this for small edits.', 'parameters': {'type': 'object', 'properties': {'path': {'type': 'string'}, 'old': {'type': 'string'}, 'new': {'type': 'string'}}, 'required': ['path', 'old', 'new']}}},
     {'type': 'function', 'function': {'name': 'git_diff', 'description': 'Inspect the current uncommitted diff.', 'parameters': {'type': 'object', 'properties': {}, 'required': []}}},
 ]
@@ -250,11 +305,32 @@ READ_ONLY_TOOLS = [tool for tool in TOOLS if tool['function']['name'] in {'list_
 LIST_FILES_TOOL = [tool for tool in TOOLS if tool['function']['name'] == 'list_files']
 
 
+def parse_tool_arguments(raw: Any) -> dict[str, Any]:
+    if raw is None:
+        return {}
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            return {'_invalid_arguments': f'Invalid JSON: {exc}'}
+    if not isinstance(raw, dict):
+        return {'_invalid_arguments': f'Expected an object, received {type(raw).__name__}'}
+    return raw
+
+
+def response_message(response: Any) -> dict[str, Any]:
+    if not isinstance(response, dict) or not isinstance(response.get('message'), dict):
+        raise ValueError('Ollama response did not contain a structured message object')
+    return response['message']
+
+
 def call_tool(name: str, args: dict[str, Any]) -> str:
     if name == 'list_files':
         return list_files(str(args.get('prefix', '')))
     if name == 'read_file':
-        return read_file(str(args['path']))
+        start_line = int(args.get('start_line', 1))
+        end_line = int(args['end_line']) if args.get('end_line') is not None else None
+        return read_file(str(args['path']), start_line, end_line)
     if name == 'search_text':
         return search_text(str(args['query']), str(args.get('prefix', '')))
     if name == 'write_file':
@@ -262,7 +338,7 @@ def call_tool(name: str, args: dict[str, Any]) -> str:
     if name == 'replace_text':
         return replace_text(str(args['path']), str(args['old']), str(args['new']))
     if name == 'git_diff':
-        return git_diff()
+        return truncate_for_model(git_diff())
     return json.dumps({'error': 'unknown_tool', 'name': name})
 
 
@@ -315,16 +391,19 @@ def preflight_native_tools(base_url: str, model: str) -> dict[str, Any]:
             'error': {'type': type(exc).__name__, 'message': str(exc)},
         }
 
-    message = response.get('message', {})
+    try:
+        message = response_message(response)
+    except ValueError as exc:
+        return {
+            'ok': False,
+            'duration_s': round(time.time() - started, 2),
+            'tool_calls': audit,
+            'error': {'type': type(exc).__name__, 'message': str(exc)},
+        }
     for call in message.get('tool_calls') or []:
         fn = call.get('function', {})
         name = str(fn.get('name', ''))
-        args = fn.get('arguments') or {}
-        if isinstance(args, str):
-            try:
-                args = json.loads(args)
-            except json.JSONDecodeError as exc:
-                args = {'_invalid_arguments': str(exc)}
+        args = parse_tool_arguments(fn.get('arguments'))
         try:
             if '_invalid_arguments' in args:
                 raise ValueError('Invalid JSON tool arguments: ' + args['_invalid_arguments'])
@@ -335,7 +414,7 @@ def preflight_native_tools(base_url: str, model: str) -> dict[str, Any]:
             result = json.dumps({'error': type(exc).__name__, 'message': str(exc)})
         audit.append({
             'tool': name,
-            'argument_names': sorted(args),
+            'argument_names': sorted(str(key) for key in args),
             'result': audit_tool_result(name, result),
         })
 
@@ -395,7 +474,10 @@ def run_tool_agent(
             response = ollama_chat(base_url, model, messages, tools, num_predict=TOOL_AGENT_NUM_PREDICT)
         except Exception as exc:
             raise AgentRuntimeError(role, exc, tool_audit) from exc
-        message = response.get('message', {})
+        try:
+            message = response_message(response)
+        except ValueError as exc:
+            raise AgentRuntimeError(role, exc, tool_audit) from exc
         messages.append(message)
         tool_calls = message.get('tool_calls') or []
         if not tool_calls:
@@ -420,12 +502,7 @@ def run_tool_agent(
         for call in tool_calls:
             fn = call.get('function', {})
             name = str(fn.get('name', ''))
-            args = fn.get('arguments') or {}
-            if isinstance(args, str):
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError as exc:
-                    args = {'_invalid_arguments': str(exc)}
+            args = parse_tool_arguments(fn.get('arguments'))
             try:
                 if '_invalid_arguments' in args:
                     raise ValueError('Invalid JSON tool arguments: ' + args['_invalid_arguments'])
@@ -437,7 +514,7 @@ def run_tool_agent(
                 result = json.dumps({'error': type(exc).__name__, 'message': str(exc)})
             tool_audit.append({
                 'tool': name,
-                'argument_names': sorted(args),
+                'argument_names': sorted(str(key) for key in args),
                 'result': audit_tool_result(name, result),
             })
             messages.append({'role': 'tool', 'tool_name': name, 'content': result})
@@ -449,11 +526,15 @@ def run_tool_agent(
 
 
 def ask_text_agent(base_url: str, model: str, role: str, content: str, num_predict: int = 512) -> str:
-    response = ollama_chat(base_url, model, [
-        {'role': 'system', 'content': f'You are the AURA {role} agent. Obey AGENTS.md principles: local-first, no paid APIs, safe confirmed actions, preserve the living visual, Australian English.'},
-        {'role': 'user', 'content': content},
-    ], num_predict=num_predict)
-    return str(response.get('message', {}).get('content', '')).strip()
+    try:
+        response = ollama_chat(base_url, model, [
+            {'role': 'system', 'content': f'You are the AURA {role} agent. Obey AGENTS.md principles: local-first, no paid APIs, safe confirmed actions, preserve the living visual, Australian English.'},
+            {'role': 'user', 'content': content},
+        ], num_predict=num_predict)
+        message = response_message(response)
+    except Exception as exc:
+        raise AgentRuntimeError(role, exc, []) from exc
+    return str(message.get('content', '')).strip()
 
 
 def parse_decision(text: str, allowed: set[str]) -> str:
@@ -462,6 +543,29 @@ def parse_decision(text: str, allowed: set[str]) -> str:
     if not match or match.group(1) not in allowed:
         return 'INVALID'
     return match.group(1)
+
+
+def ask_decision_agent(
+    base_url: str,
+    model: str,
+    role: str,
+    content: str,
+    allowed: set[str],
+    num_predict: int = 384,
+) -> str:
+    """Retry one formatting-only failure without weakening exact decision gates."""
+    response = ask_text_agent(base_url, model, role, content, num_predict=num_predict)
+    if parse_decision(response, allowed) != 'INVALID':
+        return response
+    choices = ', '.join(f'DECISION: {choice}' for choice in sorted(allowed))
+    correction = (
+        content
+        + '\n\nYour previous response did not contain a valid exact decision line. '
+        + f'Review the same evidence and begin with exactly one of these lines: {choices}. '
+        + 'Do not use another decision word.\n\n'
+        + 'PREVIOUS INVALID RESPONSE:\n' + response
+    )
+    return ask_text_agent(base_url, model, role, correction, num_predict=min(num_predict, 256))
 
 
 def write_report(sections: list[tuple[str, str]]) -> Path:
@@ -473,6 +577,14 @@ def write_report(sections: list[tuple[str, str]]) -> Path:
         body += f'## {heading}\n\n{content.strip()}\n\n'
     report.write_text(body, encoding='utf-8')
     return report
+
+
+def write_patch_evidence(diff: str | None = None) -> Path:
+    report_dir = ROOT / 'builder' / 'runs'
+    report_dir.mkdir(parents=True, exist_ok=True)
+    patch = report_dir / 'latest.patch'
+    patch.write_text(diff if diff is not None else git_diff(), encoding='utf-8')
+    return patch
 
 
 def agent_summary(result: dict[str, Any]) -> str:
@@ -545,6 +657,7 @@ def main() -> int:
     preflight = preflight_native_tools(base_url, model)
     print(json.dumps(preflight, indent=2))
     if not preflight['ok']:
+        write_patch_evidence('')
         report = write_report([
             ('Task', task),
             ('Model preflight', '```json\n' + json.dumps(preflight, indent=2) + '\n```'),
@@ -622,12 +735,15 @@ def main() -> int:
             'Do not claim completion and do not invent agent activity.\n\nTASK:\n' + task
             + '\n\nSCOUT:\n' + agent_summary(scout)
             + '\n\nIMPLEMENTER:\n' + agent_summary(implementation)
-            + '\n\nTESTS:\n' + json.dumps(check_result),
+            + '\n\nTESTS:\n' + json.dumps(check_summary(check_result)),
             num_predict=512,
         )
+        write_patch_evidence(diff)
         report = write_report([
             ('Task', task),
+            ('Model preflight', '```json\n' + json.dumps(preflight, indent=2) + '\n```'),
             ('Scout', agent_summary(scout)),
+            ('Scout tool audit', '```json\n' + json.dumps(scout.get('tool_calls', []), indent=2) + '\n```'),
             ('UX/Creative direction', ux_direction),
             ('Plan', plan),
             ('Implementation', agent_summary(implementation)),
@@ -649,7 +765,7 @@ def main() -> int:
         'visual direction, architecture or scope. Do not rewrite requirements merely to excuse an implementation. '
         'Do not duplicate material or edit source code. If the implementation does not change an authoritative decision, '
         'make no edit and explain why. Conversation-only attachments are not available to this runner, so preserve essential '
-        'approved decisions in the repository-native documents.\n\nTASK:\n' + task + '\n\nIMPLEMENTED DIFF:\n' + diff,
+        'approved decisions in the repository-native documents.\n\nTASK:\n' + task + '\n\nIMPLEMENTED DIFF:\n' + truncate_for_model(diff),
         task_source,
         require_changes=False,
         max_turns=16,
@@ -660,13 +776,13 @@ def main() -> int:
     review_prompt = (
         'Review the diff against the task and AGENTS.md. The first line must be exactly DECISION: PASS or DECISION: BLOCKED. '
         'Use BLOCKED for any missing requirement, regression, secret exposure, unsafe real-world action, false success state or inadequate evidence.\n\nTASK:\n'
-        + task + '\n\nDIFF:\n' + diff
+        + task + '\n\nDIFF:\n' + truncate_for_model(diff)
     )
     print('\nAURA Builder: safety review…')
-    safety_review = ask_text_agent(base_url, model, 'Safety Reviewer', review_prompt, num_predict=384)
+    safety_review = ask_decision_agent(base_url, model, 'Safety Reviewer', review_prompt, {'PASS', 'BLOCKED'})
     print(safety_review)
     print('\nAURA Builder: code review…')
-    code_review = ask_text_agent(base_url, model, 'Code Reviewer', review_prompt, num_predict=384)
+    code_review = ask_decision_agent(base_url, model, 'Code Reviewer', review_prompt, {'PASS', 'BLOCKED'})
     print(code_review)
 
     reviews_pass = all(
@@ -694,16 +810,16 @@ def main() -> int:
                 'Blueprint Curator',
                 'Re-check repository-native specifications after the reviewer fix. Update documentation only if the '
                 'intentional product, design, architecture or scope decision now differs. Do not edit source code or '
-                'rewrite requirements to excuse the implementation.\n\nTASK:\n' + task + '\n\nUPDATED DIFF:\n' + diff,
+                'rewrite requirements to excuse the implementation.\n\nTASK:\n' + task + '\n\nUPDATED DIFF:\n' + truncate_for_model(diff),
                 task_source,
                 require_changes=False,
                 max_turns=12,
             )
             diff = git_diff()
-            post_fix_prompt = review_prompt.split('\n\nDIFF:\n', 1)[0] + '\n\nDIFF:\n' + diff
+            post_fix_prompt = review_prompt.split('\n\nDIFF:\n', 1)[0] + '\n\nDIFF:\n' + truncate_for_model(diff)
             print('\nAURA Builder: re-running safety and code reviews…')
-            safety_review = ask_text_agent(base_url, model, 'Safety Reviewer', post_fix_prompt, num_predict=384)
-            code_review = ask_text_agent(base_url, model, 'Code Reviewer', post_fix_prompt, num_predict=384)
+            safety_review = ask_decision_agent(base_url, model, 'Safety Reviewer', post_fix_prompt, {'PASS', 'BLOCKED'})
+            code_review = ask_decision_agent(base_url, model, 'Code Reviewer', post_fix_prompt, {'PASS', 'BLOCKED'})
             print(safety_review)
             print(code_review)
         reviews_pass = all(
@@ -716,18 +832,19 @@ def main() -> int:
     print(json.dumps(check_result, indent=2))
 
     final_diff = git_diff()
-    release = ask_text_agent(
+    release = ask_decision_agent(
         base_url,
         model,
         'Release Reviewer',
         'The first line must be exactly DECISION: READY or DECISION: HOLD. READY requires passing checks, both reviews passing, '
         'and repository-native blueprint alignment for any changed product or design decision. '
         'Never claim physical Windows wall-PC validation from static tests.\n\nTASK:\n' + task
-        + '\n\nDIFF:\n' + final_diff
+        + '\n\nDIFF:\n' + truncate_for_model(final_diff)
         + '\n\nSAFETY REVIEW:\n' + safety_review
         + '\n\nCODE REVIEW:\n' + code_review
-        + '\n\nTESTS:\n' + json.dumps(check_result),
-        num_predict=512,
+        + '\n\nTESTS:\n' + json.dumps(check_summary(check_result)),
+        {'READY', 'HOLD'},
+        num_predict=384,
     )
     print('\nAURA Builder: release review…')
     print(release)
@@ -747,21 +864,25 @@ def main() -> int:
         + '\n\nBLUEPRINT CURATION:\n' + agent_summary(blueprint)
         + '\n\nSAFETY REVIEW:\n' + safety_review
         + '\n\nCODE REVIEW:\n' + code_review
-        + '\n\nTESTS:\n' + json.dumps(check_result)
+        + '\n\nTESTS:\n' + json.dumps(check_summary(check_result))
         + '\n\nRELEASE REVIEW:\n' + release,
         num_predict=512,
     )
     print(manager)
 
+    write_patch_evidence(final_diff)
     report = write_report([
         ('Task', task),
+        ('Model preflight', '```json\n' + json.dumps(preflight, indent=2) + '\n```'),
         ('Scout', agent_summary(scout)),
+        ('Scout tool audit', '```json\n' + json.dumps(scout.get('tool_calls', []), indent=2) + '\n```'),
         ('UX/Creative direction', ux_direction),
         ('Plan', plan),
         ('Implementation', agent_summary(implementation)),
         ('Implementer tool audit', '```json\n' + json.dumps(implementation.get('tool_calls', []), indent=2) + '\n```'),
         ('Blueprint curation', agent_summary(blueprint)),
         ('Blueprint curator tool audit', '```json\n' + json.dumps(blueprint.get('tool_calls', []), indent=2) + '\n```'),
+        ('Fixer tool audit', '```json\n' + json.dumps((fix or {}).get('tool_calls', []), indent=2) + '\n```'),
         ('Safety review', safety_review),
         ('Code review', code_review),
         ('Tests', '```json\n' + json.dumps(check_result, indent=2) + '\n```'),
@@ -799,10 +920,18 @@ def guarded_main() -> int:
         }
         role = getattr(exc, 'role', 'Builder runtime')
         tool_audit = getattr(exc, 'tool_audit', [])
+        try:
+            patch = write_patch_evidence()
+            changed = changed_paths()
+        except Exception:
+            patch = write_patch_evidence('')
+            changed = []
         report = write_report([
             ('Failed role', role),
             ('Runtime failure', '```json\n' + json.dumps(failure, indent=2) + '\n```'),
             ('Tool audit', '```json\n' + json.dumps(tool_audit, indent=2) + '\n```'),
+            ('Changed paths', '\n'.join('- `' + path + '`' for path in changed) or 'None recorded.'),
+            ('Patch evidence', str(patch.relative_to(ROOT))),
             ('Result', 'HOLD: the builder stopped unexpectedly. No release or push is approved.'),
         ])
         print(f'AURA Builder stopped unexpectedly. Review {report.relative_to(ROOT)}.', file=sys.stderr)
