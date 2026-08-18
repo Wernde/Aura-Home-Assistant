@@ -56,6 +56,8 @@ python -m unittest discover -s builder\tests -v
 
 The workflow is manual by default. Automatic scheduled development should only be enabled after the local runner has been observed working safely for several releases.
 
+ChatGPT-supervised validation can also update `builder/run-requests/aura-builder.json`. Only a push to `main` that changes this exact request file starts the workflow; ordinary repository pushes do not. The request carries the repository-local task path and keeps `auto_commit` off until a task class has been proven safe.
+
 ## Current queue
 
 The first queued task is `builder/tasks/home-state-0.9.md`, which continues the confirmed Home Assistant command milestone with live state, room grouping, availability, brightness/fan capability controls and synchronisation.

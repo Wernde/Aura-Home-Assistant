@@ -13,6 +13,10 @@ on:
         required: true
         type: boolean
         default: false
+  push:
+    branches: [main]
+    paths:
+      - builder/run-requests/aura-builder.json
 
 permissions:
   contents: write
@@ -60,9 +64,24 @@ jobs:
           $config.model = $model
           $configJson = $config | ConvertTo-Json -Depth 10
           [System.IO.File]::WriteAllText($configPath, $configJson, (New-Object System.Text.UTF8Encoding($false)))
+
+          $taskFile = '${{ inputs.task_file }}'
+          $autoCommit = '${{ inputs.auto_commit }}'
+          if ('${{ github.event_name }}' -eq 'push') {
+            $request = Get-Content builder\run-requests\aura-builder.json -Raw | ConvertFrom-Json
+            $taskFile = [string]$request.task_file
+            $autoCommit = [string]$request.auto_commit
+          }
+          if ([string]::IsNullOrWhiteSpace($taskFile)) {
+            $taskFile = 'builder/tasks/home-state-0.9.md'
+          }
+          $autoCommit = $autoCommit.ToLowerInvariant()
+
           [System.IO.File]::AppendAllText(
             $env:GITHUB_ENV,
-            "AURA_BUILDER_CONFIG=$configPath$([Environment]::NewLine)",
+            "AURA_BUILDER_CONFIG=$configPath$([Environment]::NewLine)" +
+            "AURA_TASK_FILE=$taskFile$([Environment]::NewLine)" +
+            "AURA_AUTO_COMMIT=$autoCommit$([Environment]::NewLine)",
             (New-Object System.Text.UTF8Encoding($false))
           )
           git config --global --add safe.directory $env:GITHUB_WORKSPACE
@@ -80,15 +99,15 @@ jobs:
           $args = @(
             'builder\aura_builder.py',
             '--task-file',
-            '${{ inputs.task_file }}',
+            $env:AURA_TASK_FILE,
             '--config',
             $env:AURA_BUILDER_CONFIG
           )
-          if ('${{ inputs.auto_commit }}' -eq 'true') { $args += '--auto-commit' }
+          if ($env:AURA_AUTO_COMMIT -eq 'true') { $args += '--auto-commit' }
           python @args
 
       - name: Push approved agent commit
-        if: ${{ inputs.auto_commit }}
+        if: ${{ env.AURA_AUTO_COMMIT == 'true' }}
         shell: powershell
         run: |
           if (git status --porcelain) {
@@ -104,4 +123,3 @@ jobs:
           name: aura-builder-report
           path: builder/runs/
           if-no-files-found: warn
-

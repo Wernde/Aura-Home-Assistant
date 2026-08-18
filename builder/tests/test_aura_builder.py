@@ -254,6 +254,9 @@ class WorkflowConfigurationTests(unittest.TestCase):
         self.assertIn('ConvertFrom-Json', workflow)
         self.assertNotIn("-replace 'qwen3:1.7b'", workflow)
         self.assertIn('path: builder/runs/', workflow)
+        self.assertIn('builder/run-requests/aura-builder.json', workflow)
+        self.assertIn('$env:AURA_TASK_FILE', workflow)
+        self.assertIn("env.AURA_AUTO_COMMIT == 'true'", workflow)
 
 
 class PipelineIntegrationTests(RepositoryTestCase):
