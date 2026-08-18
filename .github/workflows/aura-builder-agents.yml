@@ -67,10 +67,12 @@ jobs:
 
           $taskFile = '${{ inputs.task_file }}'
           $autoCommit = '${{ inputs.auto_commit }}'
+          $runMode = 'implement'
           if ('${{ github.event_name }}' -eq 'push') {
             $request = Get-Content builder\run-requests\aura-builder.json -Raw | ConvertFrom-Json
             $taskFile = [string]$request.task_file
             $autoCommit = [string]$request.auto_commit
+            if ($request.mode) { $runMode = [string]$request.mode }
           }
           if ([string]::IsNullOrWhiteSpace($taskFile)) {
             $taskFile = 'builder/tasks/home-state-0.9.md'
@@ -81,7 +83,8 @@ jobs:
             $env:GITHUB_ENV,
             "AURA_BUILDER_CONFIG=$configPath$([Environment]::NewLine)" +
             "AURA_TASK_FILE=$taskFile$([Environment]::NewLine)" +
-            "AURA_AUTO_COMMIT=$autoCommit$([Environment]::NewLine)",
+            "AURA_AUTO_COMMIT=$autoCommit$([Environment]::NewLine)" +
+            "AURA_RUN_MODE=$runMode$([Environment]::NewLine)",
             (New-Object System.Text.UTF8Encoding($false))
           )
           git config --global --add safe.directory $env:GITHUB_WORKSPACE
@@ -104,6 +107,7 @@ jobs:
             $env:AURA_BUILDER_CONFIG
           )
           if ($env:AURA_AUTO_COMMIT -eq 'true') { $args += '--auto-commit' }
+          if ($env:AURA_RUN_MODE -eq 'review-last-commit') { $args += '--review-last-commit' }
           python @args
 
       - name: Push approved agent commit

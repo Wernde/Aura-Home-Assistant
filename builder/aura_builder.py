@@ -216,6 +216,13 @@ def git_diff() -> str:
     return diff
 
 
+def committed_diff(paths: list[str]) -> str:
+    """Return the latest committed diff, restricted to task-named files."""
+    if not paths:
+        raise ValueError('Review mode requires at least one existing path named in the task.')
+    return git('show', '--format=', '--no-ext-diff', 'HEAD', '--', *paths).stdout
+
+
 def truncate_for_model(text: str, limit: int = MAX_MODEL_TEXT_CHARS) -> str:
     if len(text) <= limit:
         return text
@@ -643,6 +650,11 @@ def main() -> int:
     parser.add_argument('--auto-commit', action='store_true')
     parser.add_argument('--allow-dirty', action='store_true')
     parser.add_argument('--verify-only', action='store_true', help='Run configured checks without asking agents to edit files')
+    parser.add_argument(
+        '--review-last-commit',
+        action='store_true',
+        help='Review and test the latest committed change to task-named files without asking the local model to edit',
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -695,6 +707,91 @@ def main() -> int:
         ])
         print(f'Model preflight failed. Review {repo_relative(report)}.', file=sys.stderr)
         return 5
+
+    if args.review_last_commit:
+        paths = task_file_hints(task)
+        diff = committed_diff(paths)
+        if not diff.strip():
+            write_patch_evidence('')
+            report = write_report([
+                ('Task', task),
+                ('Model preflight', '```json\n' + json.dumps(preflight, indent=2) + '\n```'),
+                ('Result', 'HOLD: the latest commit contains no change to the exact existing paths named by the task.'),
+            ])
+            print(f'No task-scoped committed diff. Review {repo_relative(report)}.', file=sys.stderr)
+            return 3
+
+        review_prompt = (
+            'Review the committed diff against the task and AGENTS.md. The first line must be exactly '
+            'DECISION: PASS or DECISION: BLOCKED. Use BLOCKED for any missing requirement, regression, secret exposure, '
+            'unsafe real-world action, false success state or inadequate evidence. This is an independent validation run: '
+            'the change is already committed, so do not ask to edit it.\n\nTASK:\n'
+            + task + '\n\nCOMMITTED TASK-SCOPED DIFF:\n' + truncate_for_model(diff)
+        )
+        print('AURA Builder: safety review of committed change…')
+        safety_review = ask_decision_agent(base_url, model, 'Safety Reviewer', review_prompt, {'PASS', 'BLOCKED'})
+        print(safety_review)
+        print('\nAURA Builder: code review of committed change…')
+        code_review = ask_decision_agent(base_url, model, 'Code Reviewer', review_prompt, {'PASS', 'BLOCKED'})
+        print(code_review)
+
+        print('\nAURA Builder: deterministic testing…')
+        check_result = run_checks(checks)
+        print(json.dumps(check_result, indent=2))
+        reviews_pass = all(
+            parse_decision(review, {'PASS', 'BLOCKED'}) == 'PASS'
+            for review in (safety_review, code_review)
+        )
+        release = ask_decision_agent(
+            base_url,
+            model,
+            'Release Reviewer',
+            'The first line must be exactly DECISION: READY or DECISION: HOLD. READY requires passing deterministic '
+            'checks and both independent reviews passing. Never claim physical Windows wall-PC validation from static '
+            'tests.\n\nTASK:\n' + task
+            + '\n\nCOMMITTED TASK-SCOPED DIFF:\n' + truncate_for_model(diff)
+            + '\n\nSAFETY REVIEW:\n' + safety_review
+            + '\n\nCODE REVIEW:\n' + code_review
+            + '\n\nTESTS:\n' + json.dumps(check_summary(check_result)),
+            {'READY', 'HOLD'},
+            num_predict=256,
+        )
+        print('\nAURA Builder: release review…')
+        print(release)
+        manager = ask_text_agent(
+            base_url,
+            model,
+            'Development Manager',
+            'Report directly to Dewald in concise plain Australian English. State that this was an independent review '
+            'of an already committed task-scoped diff. Summarise the change, UX impact, blueprint status, reviews, '
+            'deterministic tests, release decision, remaining physical wall-PC validation, and three ranked next '
+            'implementation suggestions. Do not invent validation or agent implementation activity.\n\nTASK:\n' + task
+            + '\n\nSAFETY REVIEW:\n' + safety_review
+            + '\n\nCODE REVIEW:\n' + code_review
+            + '\n\nTESTS:\n' + json.dumps(check_summary(check_result))
+            + '\n\nRELEASE REVIEW:\n' + release,
+            num_predict=384,
+        )
+        print('\nAURA Builder: manager report…')
+        print(manager)
+        write_patch_evidence(diff)
+        report = write_report([
+            ('Mode', 'Independent review of the latest committed change, restricted to exact paths named by the task.'),
+            ('Task', task),
+            ('Model preflight', '```json\n' + json.dumps(preflight, indent=2) + '\n```'),
+            ('Reviewed paths', '\n'.join('- `' + path + '`' for path in paths)),
+            ('Safety review', safety_review),
+            ('Code review', code_review),
+            ('Tests', '```json\n' + json.dumps(check_result, indent=2) + '\n```'),
+            ('Release review', release),
+            ('Manager report to Dewald', manager),
+        ])
+        release_ready = parse_decision(release, {'READY', 'HOLD'}) == 'READY'
+        if not check_result['ok'] or not reviews_pass or not release_ready:
+            print(f'Committed change remains on hold. Review {repo_relative(report)}.', file=sys.stderr)
+            return 4
+        print('Committed task-scoped change passed independent local-agent review and deterministic checks.')
+        return 0
 
     print('AURA Builder: scouting…')
     scout = run_tool_agent(

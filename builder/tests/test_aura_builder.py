@@ -197,6 +197,28 @@ class AgentLoopTests(unittest.TestCase):
 
 
 class CheckRunnerTests(unittest.TestCase):
+    def test_committed_diff_is_restricted_to_named_task_paths(self):
+        original_root = builder.ROOT
+        with tempfile.TemporaryDirectory() as tempdir:
+            builder.ROOT = Path(tempdir)
+            try:
+                subprocess.run(['git', 'init', '-q'], cwd=tempdir, check=True)
+                subprocess.run(['git', 'config', 'user.email', 'aura-test@example.invalid'], cwd=tempdir, check=True)
+                subprocess.run(['git', 'config', 'user.name', 'AURA test'], cwd=tempdir, check=True)
+                Path(tempdir, 'app.js').write_text('old\n', encoding='utf-8')
+                Path(tempdir, 'other.js').write_text('old\n', encoding='utf-8')
+                subprocess.run(['git', 'add', '.'], cwd=tempdir, check=True)
+                subprocess.run(['git', 'commit', '-qm', 'fixture'], cwd=tempdir, check=True)
+                Path(tempdir, 'app.js').write_text('new\n', encoding='utf-8')
+                Path(tempdir, 'other.js').write_text('secret unrelated change\n', encoding='utf-8')
+                subprocess.run(['git', 'add', '.'], cwd=tempdir, check=True)
+                subprocess.run(['git', 'commit', '-qm', 'change'], cwd=tempdir, check=True)
+                diff = builder.committed_diff(['app.js'])
+            finally:
+                builder.ROOT = original_root
+        self.assertIn('new', diff)
+        self.assertNotIn('secret unrelated change', diff)
+
     def test_model_text_is_bounded_but_keeps_both_ends(self):
         text = 'START' + ('x' * 20_000) + 'END'
         bounded = builder.truncate_for_model(text, 1_000)
@@ -263,6 +285,7 @@ class WorkflowConfigurationTests(unittest.TestCase):
         self.assertIn('path: builder/runs/', workflow)
         self.assertIn('builder/run-requests/aura-builder.json', workflow)
         self.assertIn('$env:AURA_TASK_FILE', workflow)
+        self.assertIn("$args += '--review-last-commit'", workflow)
         self.assertIn("env.AURA_AUTO_COMMIT == 'true'", workflow)
 
 

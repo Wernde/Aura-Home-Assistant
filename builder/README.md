@@ -24,6 +24,8 @@ The model cannot run arbitrary shell commands. Its tools are limited to listing,
 
 An implementation run with no code change fails. It can no longer be converted into a successful “verified” release. For an intentional check-only run, use `--verify-only`; that mode skips all editing and release claims.
 
+For small local models that cannot reliably finish the full editing pipeline inside the runner budget, `--review-last-commit` provides a narrower evidence gate. It restricts the latest committed diff to exact existing paths named in the task, runs independent Safety, Code and Release reviewers, executes every configured deterministic check, and writes the usual report and patch evidence. It never claims that the Ollama agents authored an already committed change.
+
 ## One-time Dell setup
 
 Install Git, Python 3, Node.js and Ollama. Then install a tool-capable model that fits the Dell hardware. The example configuration uses `qwen3:1.7b` (about 1.4 GB), which fits the 4 GB Dell and has materially better instruction-following than the 0.6B variant. Qwen thinking is disabled in API calls so tool responses use the request budget directly, and repository/model context is bounded. The builder requires a successful native `list_files` call within a 90-second preflight before any role starts. The first full tests rejected `qwen2.5:1.5b` because it could not reliably inspect or edit the repository, rejected `qwen2.5-coder:1.5b` because it printed pretend JSON calls instead of invoking the supplied tools, and rejected `qwen3:0.6b` because it repeatedly guessed invalid paths and completed without an implementation.
@@ -56,7 +58,7 @@ python -m unittest discover -s builder\tests -v
 
 The workflow is manual by default. Automatic scheduled development should only be enabled after the local runner has been observed working safely for several releases.
 
-ChatGPT-supervised validation can also update `builder/run-requests/aura-builder.json`. Only a push to `main` that changes this exact request file starts the workflow; ordinary repository pushes do not. The request carries the repository-local task path and keeps `auto_commit` off until a task class has been proven safe.
+ChatGPT-supervised validation can also update `builder/run-requests/aura-builder.json`. Only a push to `main` that changes this exact request file starts the workflow; ordinary repository pushes do not. The request carries the repository-local task path, keeps `auto_commit` off until a task class has been proven safe, and may set `mode` to `review-last-commit` for a bounded independent review of a prepared task-scoped change.
 
 ## Current queue
 
