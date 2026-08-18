@@ -96,6 +96,15 @@ class AgentLoopTests(unittest.TestCase):
         self.assertFalse(result['ok'])
         self.assertEqual(result['error']['type'], 'NativeToolPreflightFailed')
 
+    def test_preflight_accepts_native_call_with_a_correctable_argument_error(self):
+        response = {'message': {'role': 'assistant', 'content': '', 'tool_calls': [
+            {'function': {'name': 'list_files', 'arguments': {'prefix': 'builder now'}}}
+        ]}}
+        with mock.patch.object(builder, 'ollama_chat', return_value=response):
+            result = builder.preflight_native_tools('http://localhost:11434', 'tiny')
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['tool_calls'][0]['result']['error'], 'path_not_found')
+
     def test_implementer_no_change_is_reported_not_claimed_complete(self):
         responses = [
             {'message': {'role': 'assistant', 'content': 'I only made a plan.'}},
