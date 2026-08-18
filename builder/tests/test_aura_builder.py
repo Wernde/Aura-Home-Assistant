@@ -38,6 +38,9 @@ class PathSafetyTests(RepositoryTestCase):
         target = self.root / 'relative-root.txt'
         target.write_text('safe\n', encoding='utf-8')
         self.assertEqual(builder.safe_path('relative-root.txt'), target.resolve())
+        self.assertEqual(builder.repo_relative(target), Path('relative-root.txt'))
+        created = json.loads(builder.write_file('relative-created.txt', 'safe\n'))
+        self.assertEqual(created['path'], 'relative-created.txt')
 
     def test_rejects_traversal_and_protected_names_case_insensitively(self):
         for path in ('../outside.txt', '.git/config', '.ENV', 'nested/SECRETS.JSON'):

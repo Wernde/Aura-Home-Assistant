@@ -56,6 +56,11 @@ def safe_path(raw: str) -> Path:
     return candidate
 
 
+def repo_relative(path: Path) -> Path:
+    """Return a repository path after normalising Windows long/short aliases."""
+    return path.resolve().relative_to(ROOT.resolve())
+
+
 def git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(['git', '-C', str(ROOT), *args], text=True, capture_output=True, check=check)
 
@@ -113,7 +118,7 @@ def write_file(path: str, content: str) -> str:
         return json.dumps({'error': 'file_exists_use_replace_text', 'path': path})
     file_path.parent.mkdir(parents=True, exist_ok=True)
     file_path.write_text(content, encoding='utf-8')
-    return json.dumps({'ok': True, 'path': str(file_path.relative_to(ROOT)), 'bytes': len(content.encode('utf-8'))})
+    return json.dumps({'ok': True, 'path': str(repo_relative(file_path)), 'bytes': len(content.encode('utf-8'))})
 
 
 def replace_text(path: str, old: str, new: str) -> str:
@@ -147,7 +152,7 @@ def list_files(prefix: str = '') -> str:
     for item in base.rglob('*'):
         if not item.is_file():
             continue
-        rel = item.relative_to(ROOT)
+        rel = repo_relative(item)
         if any(part.lower() in BLOCKED_NAMES | IGNORED_DIRECTORY_NAMES for part in rel.parts):
             continue
         if len(results) >= 300:
@@ -166,7 +171,7 @@ def search_text(query: str, prefix: str = '') -> str:
     for item in base.rglob('*'):
         if not item.is_file() or item.stat().st_size > MAX_FILE_BYTES:
             continue
-        rel = item.relative_to(ROOT)
+        rel = repo_relative(item)
         if any(part.lower() in BLOCKED_NAMES | IGNORED_DIRECTORY_NAMES for part in rel.parts):
             continue
         try:
@@ -626,7 +631,7 @@ def main() -> int:
     if args.task_file:
         task_path = safe_path(args.task_file)
         task = task_path.read_text(encoding='utf-8')
-        task_source = str(task_path.relative_to(ROOT))
+        task_source = str(repo_relative(task_path))
     if not task.strip():
         print('Provide --task or --task-file.', file=sys.stderr)
         return 2
@@ -650,7 +655,7 @@ def main() -> int:
             ('Tests', '```json\n' + json.dumps(check_result, indent=2) + '\n```'),
             ('Result', 'PASS' if check_result['ok'] else 'FAIL'),
         ])
-        print(f'Verification report: {report.relative_to(ROOT)}')
+        print(f'Verification report: {repo_relative(report)}')
         return 0 if check_result['ok'] else 4
 
     print('AURA Builder: checking native model tools…')
@@ -664,7 +669,7 @@ def main() -> int:
             ('Tool audit', '```json\n' + json.dumps(preflight.get('tool_calls', []), indent=2) + '\n```'),
             ('Result', 'HOLD: the configured model did not complete a valid native tool call within the preflight budget. No agent roles or repository edits were started.'),
         ])
-        print(f'Model preflight failed. Review {report.relative_to(ROOT)}.', file=sys.stderr)
+        print(f'Model preflight failed. Review {repo_relative(report)}.', file=sys.stderr)
         return 5
 
     print('AURA Builder: scouting…')
@@ -752,7 +757,7 @@ def main() -> int:
             ('Manager report to Dewald', manager),
             ('Result', 'FAILED: the Implementer produced no repository changes. Use --verify-only for an intentional verification run.'),
         ])
-        print(f'No-change failure report: {report.relative_to(ROOT)}', file=sys.stderr)
+        print(f'No-change failure report: {repo_relative(report)}', file=sys.stderr)
         return 3
 
     print('\nAURA Builder: curating the blueprint…')
@@ -893,7 +898,7 @@ def main() -> int:
 
     release_ready = parse_decision(release, {'READY', 'HOLD'}) == 'READY'
     if not check_result['ok'] or not reviews_pass or not release_ready:
-        print(f'Not committing. Review {report.relative_to(ROOT)}.', file=sys.stderr)
+        print(f'Not committing. Review {repo_relative(report)}.', file=sys.stderr)
         return 4
 
     if args.auto_commit:
@@ -931,10 +936,10 @@ def guarded_main() -> int:
             ('Runtime failure', '```json\n' + json.dumps(failure, indent=2) + '\n```'),
             ('Tool audit', '```json\n' + json.dumps(tool_audit, indent=2) + '\n```'),
             ('Changed paths', '\n'.join('- `' + path + '`' for path in changed) or 'None recorded.'),
-            ('Patch evidence', str(patch.relative_to(ROOT))),
+            ('Patch evidence', str(repo_relative(patch))),
             ('Result', 'HOLD: the builder stopped unexpectedly. No release or push is approved.'),
         ])
-        print(f'AURA Builder stopped unexpectedly. Review {report.relative_to(ROOT)}.', file=sys.stderr)
+        print(f'AURA Builder stopped unexpectedly. Review {repo_relative(report)}.', file=sys.stderr)
         return 5
 
 
