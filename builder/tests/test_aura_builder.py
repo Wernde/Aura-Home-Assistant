@@ -154,13 +154,13 @@ class AgentLoopTests(unittest.TestCase):
         self.assertFalse(result['ok'])
         self.assertEqual(result['error']['type'], 'NativeToolPreflightFailed')
 
-    def test_preflight_accepts_native_call_with_a_correctable_argument_error(self):
+    def test_preflight_rejects_native_call_with_invented_arguments(self):
         response = {'message': {'role': 'assistant', 'content': '', 'tool_calls': [
             {'function': {'name': 'list_files', 'arguments': {'prefix': 'builder now'}}}
         ]}}
         with mock.patch.object(builder, 'ollama_chat', return_value=response):
             result = builder.preflight_native_tools('http://localhost:11434', 'tiny')
-        self.assertTrue(result['ok'])
+        self.assertFalse(result['ok'])
         self.assertEqual(result['tool_calls'][0]['result']['error'], 'path_not_found')
 
     def test_implementer_no_change_is_reported_not_claimed_complete(self):
@@ -247,11 +247,11 @@ class WorkflowConfigurationTests(unittest.TestCase):
     def test_dell_runner_uses_tool_native_small_model(self):
         workflow = (REPOSITORY_ROOT / '.github' / 'workflows' / 'aura-builder-agents.yml').read_text(encoding='utf-8')
         config = json.loads((REPOSITORY_ROOT / 'builder' / 'config.example.json').read_text(encoding='utf-8'))
-        self.assertIn("$model = 'qwen3:0.6b'", workflow)
-        self.assertNotIn("$model = 'qwen3:1.7b'", workflow)
+        self.assertIn("$model = 'qwen3:1.7b'", workflow)
+        self.assertNotIn("$model = 'qwen3:0.6b'", workflow)
         self.assertNotIn("$model = 'qwen2.5:1.5b'", workflow)
         self.assertNotIn("$model = 'qwen2.5-coder:1.5b'", workflow)
-        self.assertEqual(config['model'], 'qwen3:0.6b')
+        self.assertEqual(config['model'], 'qwen3:1.7b')
         self.assertIn('actions/checkout@v7', workflow)
         self.assertIn('actions/upload-artifact@v7', workflow)
         self.assertIn('ConvertFrom-Json', workflow)

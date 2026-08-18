@@ -32,6 +32,14 @@ Turn verified Home Assistant entities into a live, room-oriented home-state expe
 - Commands only report confirmed after gateway/Home Assistant readback.
 - The wall layout remains usable at 1280×800 and touch controls remain comfortably sized.
 
+## Repository starting points
+
+- `home-gateway.js` renders the Home Assistant status, entity cards, refresh action and command lifecycle in the wall interface.
+- `home-gateway.css` styles the Home Assistant drawer and touch controls.
+- `gateway/local-gateway.js` normalises Home Assistant entities, enforces the allowlist and confirms command state by readback.
+- `gateway/local-gateway.test.js` contains deterministic gateway safety tests.
+- Read these exact files before editing. The task title `Home State 0.9` is not a filename.
+
 ## Non-goals
 
 - Do not add paid cloud APIs.

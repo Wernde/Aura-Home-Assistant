@@ -26,13 +26,13 @@ An implementation run with no code change fails. It can no longer be converted i
 
 ## One-time Dell setup
 
-Install Git, Python 3, Node.js and Ollama. Then install a tool-capable model that fits the Dell hardware. The example configuration uses `qwen3:0.6b` (about 523 MB), selected for native Ollama tool calling within the 4 GB limit. The builder requires a valid native `list_files` call within a 90-second preflight before any role starts. The first full tests rejected `qwen2.5:1.5b` because it could not reliably inspect or edit the repository, rejected `qwen2.5-coder:1.5b` because it printed pretend JSON calls instead of invoking the supplied tools, and rejected `qwen3:1.7b` on this Dell because its first Scout response timed out before any tool call.
+Install Git, Python 3, Node.js and Ollama. Then install a tool-capable model that fits the Dell hardware. The example configuration uses `qwen3:1.7b` (about 1.4 GB), which fits the 4 GB Dell and has materially better instruction-following than the 0.6B variant. Qwen thinking is disabled in API calls so tool responses use the request budget directly, and repository/model context is bounded. The builder requires a successful native `list_files` call within a 90-second preflight before any role starts. The first full tests rejected `qwen2.5:1.5b` because it could not reliably inspect or edit the repository, rejected `qwen2.5-coder:1.5b` because it printed pretend JSON calls instead of invoking the supplied tools, and rejected `qwen3:0.6b` because it repeatedly guessed invalid paths and completed without an implementation.
 
 From the repository root:
 
 ```powershell
 Copy-Item builder\config.example.json builder\config.json
-ollama pull qwen3:0.6b
+ollama pull qwen3:1.7b
 python builder\aura_builder.py --task-file builder\tasks\home-state-0.9.md
 ```
 

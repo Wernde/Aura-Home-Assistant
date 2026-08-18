@@ -362,6 +362,7 @@ def audit_tool_result(name: str, result: str) -> dict[str, Any]:
             if key in parsed:
                 summary[key] = parsed[key]
     elif isinstance(parsed, list):
+        summary['ok'] = True
         summary['items'] = len(parsed)
     return summary
 
@@ -423,10 +424,9 @@ def preflight_native_tools(base_url: str, model: str) -> dict[str, Any]:
             'result': audit_tool_result(name, result),
         })
 
-    # This gate proves that Ollama returned a structured native function call.
-    # Argument-quality errors remain visible in the audit and can be corrected by
-    # the normal multi-turn agent loop; they do not mean tool calling is absent.
-    valid = any(item['tool'] == 'list_files' for item in audit)
+    # A native call with invented arguments predicts the same failure in later
+    # roles, so require both the structured call and a successful tool result.
+    valid = any(item['tool'] == 'list_files' and item['result'].get('ok') for item in audit)
     return {
         'ok': valid,
         'duration_s': round(time.time() - started, 2),
@@ -462,6 +462,7 @@ def run_tool_agent(
         'never print, describe or wrap a pretend JSON tool call in normal text. '
         + ('Then use replace_text or write_file to make focused changes. ' if require_changes else '')
         + 'Do not ask the user to provide files already in the repository. '
+        'The user has authorised this repository task: do not ask whether to proceed. '
         'The original product task overrides planner notes if they conflict. '
         'When finished, return a concise summary, risks and checks that should run.\n\n'
         'REPOSITORY INDEX:\n' + repository_index + '\n\nAGENTS.MD:\n' + repository_rules
