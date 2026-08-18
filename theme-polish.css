@@ -1,0 +1,106 @@
+:root{
+  --workspace-surface:rgba(244,247,249,.94);
+  --workspace-surface-warm:rgba(250,247,241,.92);
+  --workspace-panel:rgba(240,245,249,.88);
+  --workspace-panel-warm:rgba(248,244,237,.86);
+  --workspace-border:rgba(158,177,193,.42);
+  --workspace-shadow:0 26px 72px rgba(39,57,73,.14);
+  --status-control-bg:rgba(246,249,251,.88);
+  --status-control-border:rgba(123,151,175,.38);
+  --status-control-text:#34485a;
+}
+
+/* Give the contextual workspace depth without turning it into a dark mode panel. */
+.workspace-shell{
+  border-color:var(--workspace-border);
+  background:
+    radial-gradient(circle at 12% 5%,rgba(255,226,187,.22),transparent 32%),
+    radial-gradient(circle at 92% 14%,rgba(183,218,249,.24),transparent 36%),
+    linear-gradient(145deg,var(--workspace-surface-warm),var(--workspace-surface));
+  box-shadow:var(--workspace-shadow);
+  backdrop-filter:blur(28px) saturate(1.08);
+}
+.workspace-head{
+  background:linear-gradient(90deg,rgba(249,245,238,.76),rgba(237,244,250,.76));
+  border-bottom-color:var(--workspace-border);
+}
+.workspace-body{
+  background:linear-gradient(180deg,rgba(239,244,248,.40),rgba(248,245,239,.38));
+}
+.workspace-chip{
+  border:1px solid rgba(135,163,187,.24);
+  background:rgba(231,239,246,.78);
+  color:#536777;
+}
+.workspace-actions button{
+  border-color:var(--workspace-border);
+  background:rgba(247,250,252,.86);
+  color:#40576a;
+  box-shadow:0 5px 14px rgba(52,75,94,.06);
+}
+.workspace-actions button:hover,
+.workspace-actions button:focus-visible{
+  background:rgba(228,239,248,.96);
+  border-color:rgba(47,120,200,.44);
+}
+.workspace-item,
+.workspace-tile{
+  border-color:rgba(146,167,184,.34);
+  background:linear-gradient(145deg,var(--workspace-panel-warm),var(--workspace-panel));
+  box-shadow:0 8px 22px rgba(49,68,84,.055);
+}
+.workspace-item:hover,
+.workspace-tile:hover{
+  border-color:rgba(47,120,200,.30);
+  background:linear-gradient(145deg,rgba(250,246,239,.95),rgba(232,241,248,.95));
+}
+.workspace-empty,
+.workspace-error{
+  border:1px solid rgba(146,167,184,.28);
+  background:rgba(232,239,245,.72);
+}
+.workspace-primary{
+  border-color:rgba(47,120,200,.32);
+  background:linear-gradient(135deg,rgba(225,238,250,.94),rgba(238,244,250,.88));
+}
+.workspace-pinned{
+  box-shadow:0 0 0 3px rgba(47,120,200,.11),var(--workspace-shadow);
+}
+
+/* The top-right controls should read as quiet status controls, not dark navigation blocks. */
+.awareness-button,
+.privacy-button{
+  border-color:var(--status-control-border);
+  background:var(--status-control-bg);
+  color:var(--status-control-text);
+  box-shadow:0 5px 16px rgba(44,65,82,.06);
+  backdrop-filter:blur(14px);
+}
+.awareness-button:hover,
+.privacy-button:hover,
+.awareness-button:focus-visible,
+.privacy-button:focus-visible{
+  border-color:rgba(47,120,200,.46);
+  background:rgba(235,243,249,.96);
+  color:#244b70;
+}
+.privacy-button[aria-pressed=true],
+body[data-privacy=true] .privacy-button{
+  border-color:rgba(216,154,50,.44);
+  color:#8d621b;
+  background:rgba(255,243,223,.92);
+}
+body[data-presence=detected] .awareness-button{
+  border-color:rgba(63,149,96,.35);
+  background:rgba(237,247,240,.92);
+  color:#326f49;
+}
+body[data-presence=detected] .presence-state{
+  color:#3f9560;
+}
+
+@media(max-width:900px){
+  .workspace-shell{
+    background:linear-gradient(155deg,rgba(249,246,240,.97),rgba(239,245,249,.97));
+  }
+}
