@@ -127,6 +127,10 @@ class DecisionGateTests(unittest.TestCase):
 
 
 class AgentLoopTests(unittest.TestCase):
+    def test_task_file_hints_keep_exact_existing_paths(self):
+        hints = builder.task_file_hints('Read `home-gateway.js` and ignore `missing.js` plus `light.*`.')
+        self.assertEqual(hints, ['home-gateway.js'])
+
     def test_tool_argument_parser_handles_non_object_values(self):
         self.assertEqual(builder.parse_tool_arguments('{"path":"app.js"}'), {'path': 'app.js'})
         invalid = builder.parse_tool_arguments(['app.js'])

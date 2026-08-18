@@ -307,6 +307,8 @@ TOOLS = [
     {'type': 'function', 'function': {'name': 'git_diff', 'description': 'Inspect the current uncommitted diff.', 'parameters': {'type': 'object', 'properties': {}, 'required': []}}},
 ]
 READ_ONLY_TOOLS = [tool for tool in TOOLS if tool['function']['name'] in {'list_files', 'read_file', 'search_text', 'git_diff'}]
+FOCUSED_READ_ONLY_TOOLS = [tool for tool in TOOLS if tool['function']['name'] in {'read_file', 'git_diff'}]
+EDIT_TOOLS = [tool for tool in TOOLS if tool['function']['name'] in {'read_file', 'replace_text', 'write_file', 'git_diff'}]
 LIST_FILES_TOOL = [tool for tool in TOOLS if tool['function']['name'] == 'list_files']
 
 
@@ -327,6 +329,21 @@ def response_message(response: Any) -> dict[str, Any]:
     if not isinstance(response, dict) or not isinstance(response.get('message'), dict):
         raise ValueError('Ollama response did not contain a structured message object')
     return response['message']
+
+
+def task_file_hints(task: str) -> list[str]:
+    """Extract exact existing repository paths named in a focused task."""
+    hints: list[str] = []
+    for raw in re.findall(r'`([^`\r\n]+)`', task):
+        if raw in hints or not Path(raw).suffix:
+            continue
+        try:
+            candidate = safe_path(raw)
+        except ValueError:
+            continue
+        if candidate.is_file():
+            hints.append(raw)
+    return hints[:8]
 
 
 def call_tool(name: str, args: dict[str, Any]) -> str:
@@ -451,6 +468,8 @@ def run_tool_agent(
 ) -> dict[str, Any]:
     repository_index = list_files()
     repository_rules = read_file('AGENTS.md')
+    exact_paths = task_file_hints(task)
+    exact_path_text = ', '.join(exact_paths) or 'No additional task paths were named.'
     system = (
         f'You are the AURA {role} agent. Work only inside this repository. Read AGENTS.md first and obey it. '
         'AURA is local-first and must keep working without paid APIs. Never request, expose or write secrets. '
@@ -458,6 +477,7 @@ def run_tool_agent(
         'Keep changes focused, preserve working features, and use Australian English. '
         f'The product task below was loaded from {task_source}; its title/version is not a filename to find. '
         'The real repository index and AGENTS.md rules are supplied below. Use exact paths from the index. '
+        f'Exact existing paths named by this task are: {exact_path_text}. Never omit their extensions. '
         'Call read_file on relevant implementation files before editing. Invoke supplied function tools natively; '
         'never print, describe or wrap a pretend JSON tool call in normal text. '
         + ('Then use replace_text or write_file to make focused changes. ' if require_changes else '')
@@ -469,7 +489,10 @@ def run_tool_agent(
     )
     messages: list[dict[str, Any]] = [
         {'role': 'system', 'content': system},
-        {'role': 'user', 'content': task},
+        {'role': 'user', 'content': (
+            (f'FIRST REQUIRED ACTION: invoke read_file natively for {exact_paths[0]}. ' if exact_paths and role in {'Codebase Scout', 'Implementer', 'Fixer'} else '')
+            + 'Do not call list_files or search_text for a path already named below.\n\n' + task
+        )},
     ]
     final = ''
     premature_finishes = 0
@@ -680,9 +703,9 @@ def main() -> int:
         'Codebase Scout',
         'Inspect the repository for the supplied task. Identify the smallest relevant files, existing tests, constraints and likely regression risks. Do not edit files.\n\n' + task,
         task_source,
-        tools=READ_ONLY_TOOLS,
+        tools=FOCUSED_READ_ONLY_TOOLS,
         require_changes=False,
-        max_turns=8,
+        max_turns=4,
     )
     print(agent_summary(scout))
 
@@ -719,10 +742,12 @@ def main() -> int:
         base_url,
         model,
         'Implementer',
-        task + '\n\nSCOUT EVIDENCE:\n' + agent_summary(scout)
-        + '\n\nUX/Creative Designer advice (advisory; apply only where relevant to the task):\n' + ux_direction
-        + '\n\nPlanner notes (advisory only; ignore any conflict with the task):\n' + plan,
+        task + '\n\nSCOUT EVIDENCE (advisory):\n' + truncate_for_model(agent_summary(scout), 800)
+        + '\n\nImplementation directive: make only the focused change requested by the task. Do not copy code blocks, '
+        'imports or invented filenames from advisory role responses.',
         task_source,
+        tools=EDIT_TOOLS,
+        max_turns=12,
     )
     print(agent_summary(implementation))
 
@@ -774,7 +799,7 @@ def main() -> int:
         'approved decisions in the repository-native documents.\n\nTASK:\n' + task + '\n\nIMPLEMENTED DIFF:\n' + truncate_for_model(diff),
         task_source,
         require_changes=False,
-        max_turns=16,
+        max_turns=6,
     )
     print(agent_summary(blueprint))
     diff = git_diff()
